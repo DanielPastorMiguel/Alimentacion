@@ -200,18 +200,6 @@ input,textarea{font-family:inherit; color:inherit;}
 .empty-state h3{font-family:var(--font-display); font-size:19px; color:var(--text-dim); margin:0;}
 .empty-state p{font-size:14px; margin:0; max-width:260px; line-height:1.5;}
 
-/* ---------- FAB ---------- */
-.fab{
-  position:absolute; right:20px; bottom:calc(96px + var(--safe-bottom));
-  width:56px; height:56px; border-radius:50%;
-  background:var(--accent); color:var(--accent-ink);
-  display:flex; align-items:center; justify-content:center;
-  box-shadow:0 10px 24px -6px rgba(147,178,94,0.55), 0 2px 6px rgba(0,0,0,.3);
-  z-index:15; transition:transform .15s ease;
-}
-.fab:active{transform:scale(0.9);}
-.fab svg{width:24px; height:24px;}
-
 /* ---------- OVERLAY VIEWS (full screen push) ---------- */
 .view-overlay{
   position:absolute; inset:0; background:var(--bg); z-index:30;
@@ -640,6 +628,23 @@ input,textarea{font-family:inherit; color:inherit;}
 }
 .toast.show{opacity:1; transform:translate(-50%,0);}
 .toast svg{width:15px; height:15px; color:var(--accent);}
+
+/* ---------- PHOTO LIGHTBOX ---------- */
+.photo-lightbox{
+  position:fixed; inset:0; background:rgba(6,7,4,0.94);
+  display:flex; align-items:center; justify-content:center;
+  padding:calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
+  z-index:200; opacity:0; pointer-events:none; transition:opacity .2s ease;
+}
+.photo-lightbox.open{opacity:1; pointer-events:auto;}
+.photo-lightbox img{max-width:100%; max-height:100%; border-radius:var(--radius-m); object-fit:contain;}
+.photo-lightbox-close{
+  position:absolute; top:calc(var(--safe-top) + 14px); right:20px;
+  width:38px; height:38px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(244,242,234,0.1); color:var(--text);
+}
+.photo-lightbox-close svg{width:18px; height:18px;}
 </style>
 </head>
 <body>
@@ -712,11 +717,6 @@ input,textarea{font-family:inherit; color:inherit;}
     </button>
   </nav>
 
-  <!-- ===== FAB (contextual) ===== -->
-  <button class="fab" id="fab-add" style="display:none">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
-
   <!-- ===== OVERLAY: DETALLE RECETA ===== -->
   <div class="view-overlay" id="view-detail">
     <div class="view-header">
@@ -772,6 +772,11 @@ input,textarea{font-family:inherit; color:inherit;}
 
   <div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span id="toast-text"></span></div>
 
+  <div class="photo-lightbox" id="photo-lightbox">
+    <button type="button" class="photo-lightbox-close" id="photo-lightbox-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <img id="photo-lightbox-img" src="" alt="">
+  </div>
+
   <div class="install-banner" id="install-banner">
     <div class="ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="5" y1="17.5" x2="19" y2="17.5"/></svg></div>
     <div class="ib-body">
@@ -822,7 +827,21 @@ function showToast(msg){
   clearTimeout(showToast._tm);
   showToast._tm=setTimeout(()=>t.classList.remove('show'),2000);
 }
+function openPhotoLightbox(src){
+  if(!src) return;
+  $('#photo-lightbox-img').src=src;
+  $('#photo-lightbox').classList.add('open');
+}
+function closePhotoLightbox(){ $('#photo-lightbox').classList.remove('open'); }
+$('#photo-lightbox').addEventListener('click',closePhotoLightbox);
+$('#photo-lightbox-close').addEventListener('click',closePhotoLightbox);
 function photoUrl(seed){ return `https://picsum.photos/seed/${encodeURIComponent(seed)}/400/400`; }
+// Foto negra usada como sustituto cuando una receta no tiene fotografía.
+const BLANK_PHOTO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC';
+function photoTagHtml(photo, alt, cls){
+  const safeAlt=(alt||'').replace(/"/g,'&quot;');
+  return `<img class="${cls}" src="${photo||BLANK_PHOTO}" alt="${safeAlt}" loading="lazy">`;
+}
 
 /* Activa el botón de limpiar (x) de una .search-bar ya existente en el DOM. */
 function enhanceSearchBar(wrapperEl, onChange){
@@ -1041,17 +1060,21 @@ function switchTab(tab){
   const titles={recetas:'Recetas', planificador:'Planificador', compra:'Lista de compra'};
   $('#header-title').textContent=titles[tab];
   renderHeaderActions();
-  const fab=$('#fab-add');
-  fab.style.display = tab==='recetas' ? 'flex' : 'none';
   if(tab==='planificador') renderPlanner();
   if(tab==='compra') renderShopping();
 }
 $$('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-$('#fab-add').addEventListener('click',()=>openRecipeForm(null));
 
 function renderHeaderActions(){
   const el=$('#header-actions'); el.innerHTML='';
   if(currentTab==='recetas'){
+    const addBtn=document.createElement('button');
+    addBtn.className='icon-btn';
+    addBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    addBtn.title='Nueva receta';
+    addBtn.addEventListener('click',()=>openRecipeForm(null));
+    el.appendChild(addBtn);
+
     const btn=document.createElement('button');
     btn.className='icon-btn';
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v20M6 2c-2 0-3 2-3 5s1 5 3 5M6 12v10"/><path d="M18 2v9a3 3 0 0 1-6 0V2"/><path d="M15 2v6"/></svg>';
@@ -1126,7 +1149,7 @@ function renderRecipeList(){
     const card=document.createElement('button');
     card.className='recipe-card';
     card.innerHTML=`
-      <img src="${r.photo}" alt="${r.name}" loading="lazy">
+      ${photoTagHtml(r.photo, r.name, '')}
       <div class="recipe-card-body">
         <p class="recipe-card-title">${r.name}</p>
         <div class="recipe-card-meta">
@@ -1166,13 +1189,38 @@ function scaledIngredients(r,servings){
   return r.ingredients.map(i=>({...i, scaledQty: i.qty*factor}));
 }
 
+// Agrupa los ingredientes y especias de una receta según el estado ACTUAL
+// del alimento maestro (state.ingredients), no según en qué lista se guardó
+// originalmente. Así, si marcas/desmarcas un alimento como especia, las
+// recetas que lo usan lo muestran siempre en el apartado correcto.
+function classifyRecipeItems(r){
+  const combined = [
+    ...r.ingredients.map(i=>({...i, _shape:'ingredient'})),
+    ...r.spices.map(s=>({...s, _shape:'spice'}))
+  ];
+  const ingredients=[], spices=[];
+  combined.forEach(item=>{
+    const master = item.ingredientId ? state.ingredients.find(x=>x.id===item.ingredientId) : null;
+    const isSpice = master ? !!master.isSpice : (item._shape==='spice');
+    (isSpice ? spices : ingredients).push(item);
+  });
+  return {ingredients, spices};
+}
+function formatRecipeItemAmount(item, factor=1){
+  if(item._shape==='ingredient'){
+    return `${fmtQty((Number(item.qty)||0)*factor)} ${item.unit||''}`.trim();
+  }
+  return `${item.amount||''} cuch.`;
+}
+
 function renderDetail(){
   const r=state.recipes.find(x=>x.id===detailState.recipeId);
   if(!r) return;
-  const ing=scaledIngredients(r,detailState.servings);
+  const factor = detailState.servings / r.servings;
+  const grouped = classifyRecipeItems(r);
   const body=$('#detail-body');
   body.innerHTML=`
-    <img class="detail-photo" src="${r.photo}" alt="${r.name}">
+    ${photoTagHtml(r.photo, r.name, 'detail-photo')}
     <h1 class="detail-title">${r.name}</h1>
     <div class="detail-tags">${recipeCategoryNames(r).map(c=>`<span class="tag">${c}</span>`).join('')}</div>
     <div class="stat-row">
@@ -1190,7 +1238,7 @@ function renderDetail(){
     </div>
     <div class="section-title section-title-divider">Ingredientes</div>
     <div id="ingredient-rows"></div>
-    ${r.spices.length? `<div class="section-title">Especias</div><div id="spice-rows"></div>` : ''}
+    ${grouped.spices.length? `<div class="section-title">Especias</div><div id="spice-rows"></div>` : ''}
     <div class="section-title section-title-divider">Pasos</div>
     <div id="step-rows"></div>
     <div class="detail-actions">
@@ -1199,10 +1247,15 @@ function renderDetail(){
     </div>
   `;
   const ingRows=$('#ingredient-rows');
-  ingRows.innerHTML = ing.map(i=>`<div class="ingredient-row"><span>${i.name}</span><span class="qty">${fmtQty(i.scaledQty)} ${i.unit}</span></div>`).join('');
-  if(r.spices.length){
+  ingRows.innerHTML = grouped.ingredients.map(i=>`<div class="ingredient-row"><span>${i.name}</span><span class="qty">${formatRecipeItemAmount(i,factor)}</span></div>`).join('');
+  if(grouped.spices.length){
     const spiceRows=$('#spice-rows');
-    spiceRows.innerHTML = r.spices.map(s=>`<div class="spice-row"><span>${s.name}</span><span class="amt">${s.amount} cuch.</span></div>`).join('');
+    spiceRows.innerHTML = grouped.spices.map(s=>`<div class="spice-row"><span>${s.name}</span><span class="amt">${formatRecipeItemAmount(s,factor)}</span></div>`).join('');
+  }
+  const photoEl=body.querySelector('.detail-photo');
+  if(photoEl && r.photo){
+    photoEl.style.cursor='pointer';
+    photoEl.addEventListener('click',()=>openPhotoLightbox(r.photo));
   }
   const stepRows=$('#step-rows');
   let stepCounter=0;
@@ -1228,11 +1281,12 @@ let formState=null;
 function openRecipeForm(recipeId){
   if(recipeId){
     const r=state.recipes.find(x=>x.id===recipeId);
+    const grouped=classifyRecipeItems(r);
     formState={
       id:r.id, name:r.name, photo:r.photo, prepMin:r.prepMin, cookMin:r.cookMin, servings:r.servings,
       categoryIds:[...r.categoryIds],
-      ingredients:r.ingredients.map(i=>({name:i.name, qty:i.qty, unit:i.unit})),
-      spices:r.spices.map(s=>({name:s.name, amount:s.amount})),
+      ingredients:grouped.ingredients.map(i=>({name:i.name, qty:i.qty!=null?i.qty:'', unit:i.unit!=null?i.unit:''})),
+      spices:grouped.spices.map(s=>({name:s.name, amount:s.amount!=null?s.amount:(s.qty!=null?String(s.qty):'')})),
       steps:r.steps.map(s=>({type:s.type, text:s.text}))
     };
     $('#form-title').textContent='Editar receta';
@@ -1257,14 +1311,13 @@ function renderForm(){
       <button type="button" class="photo-picker" id="photo-picker">
         ${f.photo?`<img src="${f.photo}">`:`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-4 4-2-2-5 5"/></svg><span>Toca para añadir una foto</span>`}
       </button>
-      <div class="photo-actions">
-        <button type="button" id="photo-random"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Foto de ejemplo</button>
-        ${f.photo?`<button type="button" class="danger" id="photo-remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Quitar foto</button>`:''}
-      </div>
+      ${f.photo?`<div class="photo-actions">
+        <button type="button" class="danger" id="photo-remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Quitar foto</button>
+      </div>`:''}
     </div>
     <div class="field">
       <label>Nombre de la receta</label>
-      <input type="text" id="f-name" value="${f.name.replace(/"/g,'&quot;')}" placeholder="Ej. Tortilla de patatas">
+      <input type="text" id="f-name" value="${f.name.replace(/"/g,'&quot;')}" placeholder="">
     </div>
     <div class="two-col">
       <div class="field"><label>Prep. (min)</label><input type="number" id="f-prep" min="0" value="${f.prepMin}"></div>
@@ -1286,7 +1339,6 @@ function renderForm(){
     </div>
     <div class="field">
       <label>Especias</label>
-      <p class="subsection-hint">Busca entre los alimentos marcados como especia e indica las cucharadas (admite fracciones como 1/2).</p>
       <div id="f-spice-rows"></div>
       <button type="button" class="add-row-btn" id="f-add-spice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Añadir especia</button>
     </div>
@@ -1314,10 +1366,6 @@ function renderForm(){
       window.removeEventListener('focus',restore);
     };
     window.addEventListener('focus',restore);
-  });
-  $('#photo-random').addEventListener('click',()=>{
-    f.photo = photoUrl(f.name || uid('img'));
-    renderForm();
   });
   const removeBtn=$('#photo-remove');
   if(removeBtn) removeBtn.addEventListener('click',()=>{ f.photo=''; renderForm(); });
@@ -1572,13 +1620,13 @@ $('#form-save-btn').addEventListener('click',()=>{
   if(f.id){
     const r=state.recipes.find(x=>x.id===f.id);
     Object.assign(r,{
-      name:f.name.trim(), photo:f.photo||photoUrl(f.name), prepMin:f.prepMin, cookMin:f.cookMin,
+      name:f.name.trim(), photo:f.photo||'', prepMin:f.prepMin, cookMin:f.cookMin,
       servings:f.servings, categoryIds:f.categoryIds, ingredients:cleanIngredients, spices:cleanSpices, steps:cleanSteps
     });
     showToast('Receta actualizada');
   } else {
     state.recipes.push({
-      id:uid('rec'), name:f.name.trim(), photo:f.photo||photoUrl(f.name), prepMin:f.prepMin, cookMin:f.cookMin,
+      id:uid('rec'), name:f.name.trim(), photo:f.photo||'', prepMin:f.prepMin, cookMin:f.cookMin,
       servings:f.servings, categoryIds:f.categoryIds, ingredients:cleanIngredients, spices:cleanSpices, steps:cleanSteps
     });
     showToast('Receta creada');
@@ -1795,7 +1843,7 @@ function renderPlanner(){
     const entriesHtml = week[d].map((entry,idx)=>{
       if(entry.type==='recipe'){
         const rec=state.recipes.find(r=>r.id===entry.recipeId);
-        const img=rec?rec.photo:photoUrl('placeholder');
+        const img=rec?(rec.photo||BLANK_PHOTO):BLANK_PHOTO;
         return `<div class="day-entry${rec?' day-entry-recipe':''}" data-idx="${idx}">
           <img src="${img}">
           <div class="txt">${rec?rec.name:'Receta eliminada'}</div>
@@ -1864,7 +1912,7 @@ function openAddPlannerEntrySheet(offset, dayIdx){
               const row=document.createElement('button');
               row.type='button'; row.className='pick-row';
               row.style.width='100%';
-              row.innerHTML=`<img src="${r.photo}"><span class="n">${r.name}</span>`;
+              row.innerHTML=`<img src="${r.photo||BLANK_PHOTO}"><span class="n">${r.name}</span>`;
               row.addEventListener('click',()=>{
                 const week=ensureWeek(offset);
                 week[dayIdx].push({type:'recipe', recipeId:r.id, servings:r.servings});
@@ -2084,7 +2132,7 @@ function renderShoppingByRecipe(wrap){
     card.className='shop-recipe-card';
     card.innerHTML=`
       <div class="shop-recipe-head">
-        <img src="${r.photo}">
+        <img src="${r.photo||BLANK_PHOTO}">
         <span class="n">${r.name}</span>
         <button type="button" class="del-recipe-entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
       </div>
