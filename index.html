@@ -782,6 +782,7 @@ input,textarea{font-family:inherit; color:inherit;}
   </div>
 
   <input type="file" id="photo-file-input" accept="image/*" style="display:none">
+  <input type="file" id="backup-file-input" accept="application/json,.json" style="display:none">
 
 </div>
 
@@ -1057,6 +1058,13 @@ function renderHeaderActions(){
     btn.title='Alimentos';
     btn.addEventListener('click',openIngredientsView);
     el.appendChild(btn);
+
+    const backupBtn=document.createElement('button');
+    backupBtn.className='icon-btn';
+    backupBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>';
+    backupBtn.title='Copia de seguridad';
+    backupBtn.addEventListener('click',openBackupSheet);
+    el.appendChild(backupBtn);
   }
 }
 
@@ -2369,6 +2377,112 @@ photoFileInput.addEventListener('change',async(e)=>{
 function pickPhoto(onPicked){
   _photoTargetCallback=onPicked;
   photoFileInput.click();
+}
+
+/* =========================================================
+   COPIA DE SEGURIDAD (exportar / importar)
+   Incluye recetas (con sus fotos ya comprimidas), ingredientes
+   y categorías. El planificador y la lista de la compra se
+   excluyen a propósito, tal y como se pidió.
+========================================================= */
+function buildBackupPayload(){
+  return {
+    app:'alimentacion',
+    type:'backup',
+    version:1,
+    exportedAt:new Date().toISOString(),
+    categories:state.categories,
+    ingredients:state.ingredients,
+    recipes:state.recipes
+  };
+}
+
+function exportBackup(){
+  try{
+    const json=JSON.stringify(buildBackupPayload(),null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const stamp=new Date().toISOString().slice(0,10);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`alimentacion-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    showToast('Copia de seguridad exportada');
+  }catch(err){
+    console.error('Error exportando copia de seguridad',err);
+    showToast('No se pudo exportar la copia de seguridad');
+  }
+}
+
+function isValidBackupPayload(obj){
+  return !!obj && typeof obj==='object'
+    && Array.isArray(obj.recipes) && Array.isArray(obj.ingredients) && Array.isArray(obj.categories);
+}
+
+function triggerImportFilePicker(){ $('#backup-file-input').click(); }
+
+$('#backup-file-input').addEventListener('change',(e)=>{
+  const file=e.target.files && e.target.files[0];
+  e.target.value='';
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onerror=()=>showToast('No se pudo leer el archivo');
+  reader.onload=()=>{
+    let parsed;
+    try{ parsed=JSON.parse(reader.result); }
+    catch(err){ showToast('El archivo no es una copia de seguridad válida'); return; }
+    if(!isValidBackupPayload(parsed)){ showToast('El archivo no es una copia de seguridad válida'); return; }
+    openBackupConfirmSheet(parsed);
+  };
+  reader.readAsText(file);
+});
+
+function openBackupConfirmSheet(payload){
+  const dateTxt = payload.exportedAt
+    ? new Date(payload.exportedAt).toLocaleString('es-ES',{dateStyle:'medium', timeStyle:'short'})
+    : 'fecha desconocida';
+  openSheet({
+    title:'Restaurar copia de seguridad',
+    bodyBuilder:(body)=>{
+      body.innerHTML=`
+        <p class="subsection-hint">Archivo del ${dateTxt}, con <b style="color:var(--text);">${payload.recipes.length}</b> receta${payload.recipes.length===1?'':'s'} y <b style="color:var(--text);">${payload.ingredients.length}</b> alimento${payload.ingredients.length===1?'':'s'}.</p>
+        <p class="subsection-hint" style="color:var(--paprika);">Esto reemplazará todas tus recetas y alimentos actuales por los del archivo. El planificador y la lista de la compra no se ven afectados. Esta acción no se puede deshacer.</p>
+      `;
+    },
+    footerLabel:'Restaurar',
+    onConfirm:()=>{
+      state.categories = payload.categories;
+      state.ingredients = payload.ingredients;
+      state.recipes = payload.recipes;
+      renderCategoryChips();
+      renderRecipeList();
+      showToast('Copia de seguridad restaurada');
+    }
+  });
+}
+
+function openBackupSheet(){
+  openSheet({
+    title:'Copia de seguridad',
+    bodyBuilder:(body)=>{
+      body.innerHTML=`
+        <p class="subsection-hint">Guarda un archivo con tus recetas (incluidas las fotos) y tus alimentos, o restaura uno guardado antes. El planificador y la lista de la compra no se incluyen.</p>
+        <button type="button" class="btn btn-primary btn-full" id="backup-export-btn" style="margin-top:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          Exportar copia de seguridad
+        </button>
+        <button type="button" class="btn btn-secondary btn-full" id="backup-import-btn" style="margin-top:10px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M12 9l-4 4M12 9l4 4"/><path d="M4 3v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3"/></svg>
+          Importar copia de seguridad
+        </button>
+      `;
+      body.querySelector('#backup-export-btn').addEventListener('click',()=>{ exportBackup(); closeSheet(); });
+      body.querySelector('#backup-import-btn').addEventListener('click',()=>{ closeSheet(); triggerImportFilePicker(); });
+    }
+  });
 }
 
 /* =========================================================
