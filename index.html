@@ -283,29 +283,26 @@ input,textarea{font-family:inherit; color:inherit;}
 .spice-row:last-child{border-bottom:none;}
 .spice-row .amt{color:var(--accent); font-weight:700; flex-shrink:0;}
 
-/* ---------- TABLA DE PASOS ---------- */
+/* ---------- TABLA DE PASOS (diagrama ingrediente -> operación) ---------- */
 .steps-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -20px; padding:0 20px;}
-.steps-table{
-  display:grid; column-gap:1px; row-gap:1px;
-  background:var(--border); border:1px solid var(--border); border-radius:var(--radius-m);
-  overflow:hidden; min-width:100%;
+table.steps-dgm{
+  border-collapse:collapse; border:1px solid var(--border); border-radius:var(--radius-m);
+  overflow:hidden; width:100%;
 }
-.st-cell{background:var(--surface); display:flex; align-items:center; min-height:44px; padding:8px 10px; min-width:0;}
-.st-name-head{background:var(--surface-2);}
-.st-head{
-  background:var(--surface-2); color:var(--text-dim); font-size:11px; font-weight:700;
-  justify-content:center; text-align:center; line-height:1.25; text-transform:lowercase;
+table.steps-dgm td{
+  border:1px solid var(--border); padding:9px 12px; vertical-align:middle;
 }
-.st-name{
-  flex-direction:column; align-items:flex-start; justify-content:center; gap:2px;
-  font-family:ui-monospace,'SFMono-Regular',Menlo,monospace; font-size:12.5px; font-weight:600;
+td.st-ing{background:var(--surface); white-space:nowrap;}
+td.st-ing .st-ing-name{font-size:13.5px; font-weight:600; margin-right:10px;}
+td.st-ing .st-ing-qty{font-variant-numeric:tabular-nums; color:var(--text-mute); font-size:12px;}
+td.st-op{
+  background:rgba(147,178,94,0.14); text-align:center; vertical-align:middle;
+  padding:8px 6px;
 }
-.st-name .st-qty{color:var(--text-mute); font-size:10.5px; font-weight:500; font-family:var(--font-ui);}
-.st-fill{background:rgba(227,167,58,0.22);}
-.st-shade-0{background:rgba(227,167,58,0.2);}
-.st-shade-1{background:rgba(227,167,58,0.34);}
-.st-shade-2{background:rgba(227,167,58,0.5);}
-.st-shade-3{background:rgba(227,167,58,0.68);}
+td.st-op .st-op-label{
+  font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:lowercase;
+  color:var(--accent); line-height:1.3;
+}
 
 .detail-actions{display:flex; gap:10px; margin-top:24px; padding-bottom:10px;}
 .btn{
@@ -1271,29 +1268,78 @@ function findFirstStepIndex(name, stepTexts){
   }
   return -1;
 }
-function buildStepsTableHtml(r, grouped){
+
+/* Construye el árbol ingrediente -> operación de la receta.
+   Cada ingrediente es una hoja; cada paso es un nodo que "engulle" los
+   ingredientes que se mencionan por primera vez en su texto, más el
+   resultado del paso anterior (que fluye hacia él como un hijo más).
+   Es el mismo algoritmo de medición (measure) que usa el diagrama de
+   referencia: col = altura sobre las hojas, span = hojas que contiene,
+   first = la hoja más temprana que contiene — y de ahí salen rowspan/colspan. */
+function buildStepsTree(r, grouped){
   const stepEntries = r.steps.filter(s=>s.type!=='heading' && s.text && s.text.trim());
   const allItems = [...grouped.ingredients, ...grouped.spices];
-  if(stepEntries.length===0 || allItems.length===0){
+  if(stepEntries.length===0 || allItems.length===0) return null;
+
+  const stepTexts = stepEntries.map(s=>s.text);
+  const leaves = allItems.map((item,i)=>({type:'ing', item, row:i, parent:null}));
+  const ops = stepEntries.map(s=>({type:'op', label:shortStepLabel(s.text), children:[], parent:null}));
+
+  leaves.forEach(leaf=>{
+    const idx=findFirstStepIndex(leaf.item.name, stepTexts);
+    const owner = ops[idx>=0?idx:0];
+    leaf.parent=owner;
+    owner.children.push(leaf);
+  });
+  for(let i=1;i<ops.length;i++){
+    ops[i].children.unshift(ops[i-1]);
+    ops[i-1].parent=ops[i];
+  }
+  const root=ops[ops.length-1];
+
+  (function measure(n){
+    if(n.type==='ing'){ n.col=0; n.span=1; n.first=n.row; return; }
+    let maxc=0, span=0, first=Infinity;
+    n.children.forEach(ch=>{
+      measure(ch);
+      if(ch.col>maxc) maxc=ch.col;
+      span+=ch.span;
+      if(ch.first<first) first=ch.first;
+    });
+    n.col=maxc+1; n.span=span; n.first=first;
+  })(root);
+  const cols=root.col+1;
+
+  (function assignSpan(n){
+    n.colspan = n.parent ? (n.parent.col-n.col) : (cols-n.col);
+    if(n.colspan<1) n.colspan=1;
+    if(n.children) n.children.forEach(assignSpan);
+  })(root);
+
+  return {leaves, cols};
+}
+
+function stTd(n){
+  if(n.type==='ing'){
+    const item=n.item;
+    return `<td class="st-ing" colspan="${n.colspan}"><span class="st-ing-name">${item.name}</span><span class="st-ing-qty">${formatRecipeItemAmount(item,1)}</span></td>`;
+  }
+  return `<td class="st-op" colspan="${n.colspan}" rowspan="${n.span}"><span class="st-op-label">${n.label}</span></td>`;
+}
+function buildStepsTableHtml(r, grouped){
+  const tree=buildStepsTree(r, grouped);
+  if(!tree){
     return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><h3>Sin datos suficientes</h3><p>Añade ingredientes y pasos a la receta para ver la vista de tabla.</p></div>`;
   }
-  const stepTexts = stepEntries.map(s=>s.text);
-  const cols = stepEntries.length;
-  let html = `<div class="steps-table-wrap"><div class="steps-table" style="grid-template-columns:minmax(122px,1.5fr) repeat(${cols}, minmax(48px,1fr));">`;
-  html += `<div class="st-cell st-name-head" style="grid-column:1; grid-row:1;"></div>`;
-  stepEntries.forEach((s,i)=>{
-    html += `<div class="st-cell st-head" style="grid-column:${i+2}; grid-row:1;">${shortStepLabel(s.text)}</div>`;
+  let rows='';
+  tree.leaves.forEach((leaf,i)=>{
+    const cells=[leaf];
+    let a=leaf.parent;
+    while(a && a.first===i){ cells.push(a); a=a.parent; }
+    cells.sort((x,y)=>x.col-y.col);
+    rows += '<tr>'+cells.map(stTd).join('')+'</tr>';
   });
-  allItems.forEach((item,rIdx)=>{
-    const row=rIdx+2;
-    const idx=findFirstStepIndex(item.name, stepTexts);
-    const start=idx>=0?idx:0;
-    const shade=Math.min(start,3);
-    html += `<div class="st-cell st-name" style="grid-column:1; grid-row:${row};"><span>${item.name}</span><span class="st-qty">${formatRecipeItemAmount(item,1)}</span></div>`;
-    html += `<div class="st-cell st-fill st-shade-${shade}" style="grid-column:${start+2} / ${cols+2}; grid-row:${row};"></div>`;
-  });
-  html += `</div></div>`;
-  return html;
+  return `<div class="steps-table-wrap"><table class="steps-dgm"><tbody>${rows}</tbody></table></div>`;
 }
 
 function renderDetail(){
