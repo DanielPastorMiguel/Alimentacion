@@ -71,20 +71,22 @@ input,textarea{font-family:inherit; color:inherit;}
 /* ---------- HEADER ---------- */
 .app-header{
   padding-top:calc(var(--safe-top) + 10px);
-  padding:calc(var(--safe-top) + 14px) 20px 12px;
+  padding:calc(var(--safe-top) + 10px) 20px 10px;
   flex-shrink:0;
   z-index:5;
   position:relative;
 }
 .app-header .eyebrow{
-  font-size:12px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--accent); font-weight:600; margin:0 0 2px;
+  display:none;
 }
 .app-header h1{
   font-family:var(--font-display);
   font-size:32px; font-weight:600; margin:0;
   letter-spacing:-.01em;
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  display:flex; align-items:center; justify-content:flex-end; gap:12px;
+}
+.app-header h1 #header-title{
+  display:none;
 }
 .header-actions{display:flex; gap:8px; flex-shrink:0;}
 .icon-btn{
