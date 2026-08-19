@@ -1,7 +1,7 @@
 // Service Worker de "Alimentación"
 // Sube este número cada vez que publiques cambios para forzar la actualización
 // del caché en los dispositivos de los usuarios.
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v16';
 const CACHE_NAME = `alimentacion-${CACHE_VERSION}`;
 
 const APP_SHELL = [

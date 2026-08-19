@@ -282,18 +282,20 @@ input,textarea{font-family:inherit; color:inherit;}
 .spice-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 2px; font-size:15px;}
 .spice-row .amt{color:var(--accent); font-weight:700; flex-shrink:0;}
 
-/* ---------- TABLA DE PASOS (diagrama ingrediente -> operación) ---------- */
+/* ---------- TABLA DE PASOS (diagrama ingrediente -> operación) ----------
+   El contenido de esta tabla ya NO se genera automáticamente: se construye
+   a partir del texto manual que el usuario escribe en la edición de la
+   receta (ver parseStepsTableText / buildManualStepsTree). */
 .steps-table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -20px; padding:0 20px;}
 table.steps-dgm{
   border-collapse:collapse; border:1px solid var(--border); border-radius:var(--radius-m);
   overflow:hidden; width:100%;
 }
 table.steps-dgm td{
-  border:1px solid var(--border); padding:9px 12px; vertical-align:middle;
+  border:1px solid var(--border); padding:9px 12px; vertical-align:middle; text-align:center;
 }
 td.st-ing{background:var(--surface); white-space:nowrap;}
-td.st-ing .st-ing-name{font-size:13.5px; font-weight:600; margin-right:10px;}
-td.st-ing .st-ing-qty{font-variant-numeric:tabular-nums; color:var(--text-mute); font-size:12px;}
+td.st-ing .st-ing-name{font-size:13.5px; font-weight:600;}
 td.st-op{
   background:rgba(147,178,94,0.14); text-align:center; vertical-align:middle;
   padding:8px 6px;
@@ -301,6 +303,39 @@ td.st-op{
 td.st-op .st-op-label{
   font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:lowercase;
   color:var(--accent); line-height:1.3;
+}
+td.st-global{
+  background:var(--surface-2); color:var(--text-dim); font-size:13px; font-style:italic;
+  text-align:center; vertical-align:middle; white-space:normal;
+}
+
+/* ---------- Editor manual de la tabla de pasos (formulario) ---------- */
+.field-label-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:0;}
+.field-label-row label{margin:0;}
+.help-btn-sm{
+  width:22px; height:22px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border-strong);
+  color:var(--text-mute); font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.help-btn-sm:active{background:var(--surface-3);}
+.steps-table-editor{
+  width:100%; min-height:280px; max-height:70vh; background:var(--surface-2); border:1px solid var(--border-strong);
+  border-radius:var(--radius-s); padding:12px 13px; font-size:13.5px; line-height:1.6; color:var(--text);
+  outline:none; resize:vertical; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.steps-table-editor:focus{border-color:var(--accent);}
+.steps-table-hint{font-size:12px; color:var(--text-mute); margin:8px 0 0; line-height:1.5;}
+.help-sheet-body p{font-size:14px; line-height:1.55; color:var(--text-dim); margin:0 0 10px;}
+.help-sheet-body ul{margin:0 0 14px; padding-left:18px;}
+.help-sheet-body li{font-size:13.5px; line-height:1.6; color:var(--text-dim); margin-bottom:6px;}
+.help-sheet-body code, .steps-table-hint code{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; color:var(--accent);
+}
+.help-sheet-example{
+  background:var(--surface-2); border:1px solid var(--border-strong); border-radius:var(--radius-s);
+  padding:10px 12px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px;
+  line-height:1.7; color:var(--text-dim); white-space:pre-wrap; word-break:break-word;
 }
 
 .detail-actions{display:flex; gap:10px; margin-top:24px; padding-bottom:10px;}
@@ -906,7 +941,7 @@ function createSearchBarEl(placeholder, onInput){
 const state = {
   ingredients: [], // {id, name, isSpice}
   categories: [],  // {id, name} — lista cerrada de categorías
-  recipes: [],     // {id,name,photo,prepMin,cookMin,servings,categoryIds:[],ingredients:[{ingredientId,name,qty,unit}],spices:[{ingredientId,name,amount}],steps:[{type:'step'|'heading',text}]}
+  recipes: [],     // {id,name,photo,prepMin,cookMin,servings,categoryIds:[],ingredients:[{ingredientId,name,qty,unit}],spices:[{ingredientId,name,amount}],steps:[{type:'step'|'heading',text}],stepsTableText:''}
   planner: {},     // { mondayKey: [ [entries day0]... x7 ] }
   shopping: {
     recipeEntries: [],   // {id, recipeId, servings} — recetas añadidas (planificador o manualmente), con raciones ajustables
@@ -1285,11 +1320,11 @@ function formatRecipeItemAmount(item, factor=1){
 }
 
 /* ---------- Vista de pasos: Secuencial / Tabla ---------- */
-function renderStepsView(r, grouped){
+function renderStepsView(r){
   const wrap=$('#steps-view-body');
   if(!wrap) return;
   if(detailState.stepsView==='table'){
-    wrap.innerHTML = buildStepsTableHtml(r, grouped);
+    wrap.innerHTML = buildManualStepsTableHtml(r.stepsTableText);
   } else {
     let stepCounter=0;
     wrap.innerHTML = r.steps.map(s=>{
@@ -1299,44 +1334,64 @@ function renderStepsView(r, grouped){
     }).join('');
   }
 }
-function escapeRegExp(s){ return (s||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
-function shortStepLabel(text){
-  const clean=(text||'').trim();
-  if(!clean) return '';
-  let seg=clean.split(/[,.;:]/)[0].trim();
-  const words=seg.split(/\s+/);
-  if(words.length>4) seg=words.slice(0,4).join(' ');
-  return seg.toLowerCase();
-}
-function findFirstStepIndex(name, stepTexts){
-  const n=normalize(name);
-  if(!n) return -1;
-  const re=new RegExp('\\b'+escapeRegExp(n)+'\\b');
-  for(let i=0;i<stepTexts.length;i++){
-    if(re.test(normalize(stepTexts[i]))) return i;
-  }
-  return -1;
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-/* Construye el árbol ingrediente -> operación de la receta.
-   Cada ingrediente es una hoja; cada paso es un nodo que "engulle" los
-   ingredientes que se mencionan por primera vez en su texto, más el
-   resultado del paso anterior (que fluye hacia él como un hijo más).
-   Es el mismo algoritmo de medición (measure) que usa el diagrama de
-   referencia: col = altura sobre las hojas, span = hojas que contiene,
-   first = la hoja más temprana que contiene — y de ahí salen rowspan/colspan. */
-function buildStepsTree(r, grouped){
-  const stepEntries = r.steps.filter(s=>s.type!=='heading' && s.text && s.text.trim());
-  const allItems = [...grouped.ingredients, ...grouped.spices];
-  if(stepEntries.length===0 || allItems.length===0) return null;
+/* ---------- Tabla de pasos: construida A MANO por el usuario ----------
+   Ya no hay ningún algoritmo automático que infiera la tabla a partir de
+   los pasos secuenciales. El usuario escribe el texto de la tabla en el
+   formulario de edición de la receta (campo r.stepsTableText), con un
+   formato de líneas tipo lista:
+     - Paso global (sin alimento al principio): ocupa toda la fila.
+     - alimento [+ texto libre]: [ETAPA_1, ETAPA_2, ...]
+       Las etapas se agrupan entre alimentos que comparten el mismo nombre
+       de etapa (comparando el token completo, con el sufijo _N incluido),
+       de forma que dos alimentos con "MEZCLAR_1" caen en la misma celda.
+       El sufijo _N se ignora sólo a la hora de MOSTRAR el texto de la
+       celda (para poder repetir el mismo nombre de etapa en varias
+       columnas distintas), no a la hora de agrupar. */
+function parseStepsTableText(text){
+  const lines=(text||'').split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-'));
+  const entries=[];
+  lines.forEach(line=>{
+    const content=line.slice(1).trim();
+    if(!content) return;
+    const m=content.match(/^(.*):\s*\[([^\]]*)\]\s*$/);
+    if(m){
+      const label=m[1].trim();
+      const tokens=m[2].split(',').map(t=>t.trim()).filter(Boolean);
+      if(label && tokens.length){ entries.push({type:'ing', label, tokens}); return; }
+    }
+    entries.push({type:'global', text:content});
+  });
+  return entries;
+}
+// Nombre de etapa mostrado en la celda: quita el sufijo numérico "_N" (que
+// sólo sirve para distinguir varias etapas con el mismo nombre) y convierte
+// los "_" restantes en espacios (para etapas de varias palabras, p.ej.
+// FOLD_IN -> "fold in").
+function stepColLabel(token){
+  let t=(token||'').replace(/_\d+$/,'');
+  t=t.replace(/_/g,' ');
+  return t.trim();
+}
+function buildManualStepsTree(ingEntries){
+  if(ingEntries.length===0) return null;
+  const chain=[]; const keyIndex=new Map();
+  ingEntries.forEach(e=>{
+    e.tokens.forEach(tok=>{
+      const key=tok.toUpperCase();
+      if(!keyIndex.has(key)){ keyIndex.set(key, chain.length); chain.push(stepColLabel(tok)); }
+    });
+  });
+  const leaves=ingEntries.map((e,i)=>({type:'ing', label:e.label, row:i, parent:null}));
+  const ops=chain.map(label=>({type:'op', label, children:[], parent:null}));
 
-  const stepTexts = stepEntries.map(s=>s.text);
-  const leaves = allItems.map((item,i)=>({type:'ing', item, row:i, parent:null}));
-  const ops = stepEntries.map(s=>({type:'op', label:shortStepLabel(s.text), children:[], parent:null}));
-
-  leaves.forEach(leaf=>{
-    const idx=findFirstStepIndex(leaf.item.name, stepTexts);
-    const owner = ops[idx>=0?idx:0];
+  leaves.forEach((leaf,i)=>{
+    const firstTok=ingEntries[i].tokens[0];
+    const idx=keyIndex.has(firstTok.toUpperCase()) ? keyIndex.get(firstTok.toUpperCase()) : 0;
+    const owner=ops[idx];
     leaf.parent=owner;
     owner.children.push(leaf);
   });
@@ -1367,28 +1422,66 @@ function buildStepsTree(r, grouped){
 
   return {leaves, cols};
 }
-
-function stTd(n){
+function manualStTd(n){
   if(n.type==='ing'){
-    const item=n.item;
-    return `<td class="st-ing" colspan="${n.colspan}"><span class="st-ing-name">${item.name}</span><span class="st-ing-qty">${formatRecipeItemAmount(item,1)}</span></td>`;
+    return `<td class="st-ing" colspan="${n.colspan}"><span class="st-ing-name">${escapeHtml(n.label)}</span></td>`;
   }
-  return `<td class="st-op" colspan="${n.colspan}" rowspan="${n.span}"><span class="st-op-label">${n.label}</span></td>`;
+  return `<td class="st-op" colspan="${n.colspan}" rowspan="${n.span}"><span class="st-op-label">${escapeHtml(n.label)}</span></td>`;
 }
-function buildStepsTableHtml(r, grouped){
-  const tree=buildStepsTree(r, grouped);
+function stepsTableEmptyHtml(){
+  return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><h3>Sin datos suficientes</h3><p>Escribe el texto de la tabla en la edición de la receta (Pasos → vista Tabla).</p></div>`;
+}
+function buildManualStepsTableHtml(text){
+  const entries=parseStepsTableText(text);
+  if(entries.length===0) return stepsTableEmptyHtml();
+
+  const ingEntries=entries.filter(e=>e.type==='ing');
+  const tree=buildManualStepsTree(ingEntries);
   if(!tree){
-    return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><h3>Sin datos suficientes</h3><p>Añade ingredientes y pasos a la receta para ver la vista de tabla.</p></div>`;
+    // Sólo hay pasos globales, sin ningún alimento: se listan como filas
+    // simples de una sola columna.
+    const rows=entries.map(e=>`<tr><td class="st-global" colspan="1">${escapeHtml(e.text)}</td></tr>`).join('');
+    return `<div class="steps-table-wrap"><table class="steps-dgm"><tbody>${rows}</tbody></table></div>`;
   }
-  let rows='';
-  tree.leaves.forEach((leaf,i)=>{
+  const cols=tree.cols;
+  let ingCounter=-1;
+  const rows=entries.map(e=>{
+    if(e.type==='global'){
+      return `<tr><td class="st-global" colspan="${cols}">${escapeHtml(e.text)}</td></tr>`;
+    }
+    ingCounter++;
+    const i=ingCounter;
+    const leaf=tree.leaves[i];
     const cells=[leaf];
     let a=leaf.parent;
     while(a && a.first===i){ cells.push(a); a=a.parent; }
     cells.sort((x,y)=>x.col-y.col);
-    rows += '<tr>'+cells.map(stTd).join('')+'</tr>';
-  });
+    return '<tr>'+cells.map(manualStTd).join('')+'</tr>';
+  }).join('');
   return `<div class="steps-table-wrap"><table class="steps-dgm"><tbody>${rows}</tbody></table></div>`;
+}
+
+function stepsTableHelpSheetBody(body){
+  body.innerHTML=`
+    <div class="help-sheet-body">
+      <p>La tabla ya no se genera sola: escribe tú el texto siguiendo estas reglas.</p>
+      <ul>
+        <li>Cada línea empieza por <code>-</code>.</li>
+        <li>Paso sin alimento al principio (p.ej. <code>- Precalienta el horno</code>): se considera un paso global y ocupa toda la fila.</li>
+        <li>Paso de un alimento: <code>- alimento: [ETAPA_1, ETAPA_2, ...]</code>, con las etapas por las que pasa ese alimento en orden.</li>
+        <li>Puedes añadir texto libre tras el nombre del alimento (p.ej. una cantidad) y se mostrará tal cual: <code>- azúcar 200g: [MEZCLAR]</code>.</li>
+        <li>Si dos alimentos comparten el nombre exacto de una etapa, se agrupan en la misma celda.</li>
+        <li>Añade <code>_1</code>, <code>_2</code>… al final del nombre de una etapa si necesitas repetirlo en varias columnas distintas; ese número no se muestra.</li>
+      </ul>
+      <div class="help-sheet-example">- Precalienta el horno a 180°C
+- mantequilla: [DERRETIR, MEZCLAR_1, HORNEAR]
+- azúcar 100g: [MEZCLAR_1, HORNEAR]
+- harina: [HORNEAR]</div>
+    </div>
+  `;
+}
+function openStepsTableHelpSheet(){
+  openSheet({ title:'Formato de la tabla', bodyBuilder:stepsTableHelpSheetBody });
 }
 
 function renderDetail(){
@@ -1436,7 +1529,7 @@ function renderDetail(){
       if(detailState.stepsView===btn.dataset.view) return;
       detailState.stepsView=btn.dataset.view;
       $$('#steps-view-seg .shop-seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===detailState.stepsView));
-      renderStepsView(r, classifyRecipeItems(r));
+      renderStepsView(r);
     });
   });
 
@@ -1462,7 +1555,7 @@ function updateDetailServings(){
   if(ingRows) ingRows.innerHTML = grouped.ingredients.map(i=>`<div class="ingredient-row"><span>${i.name}</span><span class="qty">${formatRecipeItemAmount(i,factor)}</span></div>`).join('');
   const spiceRows=$('#spice-rows');
   if(spiceRows) spiceRows.innerHTML = grouped.spices.map(s=>`<div class="spice-row"><span>${s.name}</span><span class="amt">${formatRecipeItemAmount(s,factor)}</span></div>`).join('');
-  renderStepsView(r, grouped);
+  renderStepsView(r);
 }
 
 /* =========================================================
@@ -1470,7 +1563,8 @@ function updateDetailServings(){
 ========================================================= */
 let formState=null;
 // {id|null, name, photo, prepMin, cookMin, servings, categoryIds:[],
-//  ingredients:[{name,qty,unit}], spices:[{name,amount}], steps:[{type:'step'|'heading', text}]}
+//  ingredients:[{name,qty,unit}], spices:[{name,amount}], steps:[{type:'step'|'heading', text}],
+//  stepsTableText:'' (texto manual de la vista de tabla), stepsEditView:'seq'|'table' (sólo UI, no se guarda)}
 
 function openRecipeForm(recipeId){
   if(recipeId){
@@ -1481,13 +1575,16 @@ function openRecipeForm(recipeId){
       categoryIds:[...r.categoryIds],
       ingredients:grouped.ingredients.map(itemToIngredientRow),
       spices:grouped.spices.map(itemToSpiceRow),
-      steps:r.steps.map(s=>({type:s.type, text:s.text}))
+      steps:r.steps.map(s=>({type:s.type, text:s.text})),
+      stepsTableText:r.stepsTableText||'',
+      stepsEditView:'seq'
     };
     $('#form-title').textContent='Editar receta';
   } else {
     formState={
       id:null, name:'', photo:'', prepMin:15, cookMin:15, servings:4, categoryIds:[],
-      ingredients:[{name:'',qty:'',unit:''}], spices:[], steps:[{type:'step', text:''}]
+      ingredients:[{name:'',qty:'',unit:''}], spices:[], steps:[{type:'step', text:''}],
+      stepsTableText:'', stepsEditView:'seq'
     };
     $('#form-title').textContent='Nueva receta';
   }
@@ -1538,8 +1635,25 @@ function renderForm(){
     </div>
     <div class="field">
       <label>Pasos</label>
-      <div id="f-step-rows"></div>
-      <button type="button" class="add-row-btn" id="f-add-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Añadir paso</button>
+      <div class="shop-seg" id="f-steps-seg">
+        <button type="button" class="shop-seg-btn${f.stepsEditView!=='table'?' active':''}" data-view="seq">Secuencial</button>
+        <button type="button" class="shop-seg-btn${f.stepsEditView==='table'?' active':''}" data-view="table">Tabla</button>
+      </div>
+      <div id="f-steps-seq-panel"${f.stepsEditView==='table'?' style="display:none"':''}>
+        <div id="f-step-rows"></div>
+        <button type="button" class="add-row-btn" id="f-add-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Añadir paso</button>
+      </div>
+      <div id="f-steps-table-panel"${f.stepsEditView!=='table'?' style="display:none"':''}>
+        <div class="field-label-row" style="margin-bottom:8px;">
+          <span class="subsection-hint" style="margin:0;">Escribe la tabla a mano, una línea por fila</span>
+          <button type="button" class="help-btn-sm" id="f-steps-table-help">?</button>
+        </div>
+        <textarea class="steps-table-editor" id="f-steps-table-text" placeholder="- Precalienta el horno a 180°C
+- mantequilla: [DERRETIR, MEZCLAR_1, HORNEAR]
+- azúcar 100g: [MEZCLAR_1, HORNEAR]
+- harina: [HORNEAR]">${f.stepsTableText||''}</textarea>
+        <p class="steps-table-hint">Cada línea empieza por “-”. Un alimento va seguido de <code>: [ETAPA_1, ETAPA_2, …]</code> con las etapas por las que pasa, en orden. Sin alimento al principio = paso global (ocupa toda la fila). Toca la “?” para ver el formato completo con ejemplo.</p>
+      </div>
     </div>
     ${f.id?`<button class="btn btn-ghost-danger btn-full" id="f-delete" style="margin-top:6px;">Eliminar receta</button>`:''}
   `;
@@ -1577,6 +1691,18 @@ function renderForm(){
   $('#f-add-ing').addEventListener('click',()=>{ f.ingredients.push({name:'',qty:'',unit:''}); renderIngredientRows(); });
   $('#f-add-spice').addEventListener('click',()=>{ f.spices.push({name:'',amount:''}); renderSpiceRows(); });
   $('#f-add-step').addEventListener('click',()=>{ f.steps.push({type:'step',text:''}); renderStepRows(); });
+
+  $$('#f-steps-seg .shop-seg-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(f.stepsEditView===btn.dataset.view) return;
+      f.stepsEditView=btn.dataset.view;
+      $$('#f-steps-seg .shop-seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===f.stepsEditView));
+      $('#f-steps-seq-panel').style.display = f.stepsEditView==='table' ? 'none' : '';
+      $('#f-steps-table-panel').style.display = f.stepsEditView==='table' ? '' : 'none';
+    });
+  });
+  $('#f-steps-table-text').addEventListener('input',e=>f.stepsTableText=e.target.value);
+  $('#f-steps-table-help').addEventListener('click',openStepsTableHelpSheet);
   if(f.id) $('#f-delete').addEventListener('click',()=>{
     state.recipes = state.recipes.filter(r=>r.id!==f.id);
     closeRecipeForm();
@@ -1810,18 +1936,21 @@ $('#form-save-btn').addEventListener('click',()=>{
   const cleanSteps = f.steps
     .map(s=>({type:s.type, text:s.text.trim()}))
     .filter(s=>s.text);
+  const cleanStepsTableText = (f.stepsTableText||'').replace(/[ \t]+\n/g,'\n').trim();
 
   if(f.id){
     const r=state.recipes.find(x=>x.id===f.id);
     Object.assign(r,{
       name:f.name.trim(), photo:f.photo||'', prepMin:f.prepMin, cookMin:f.cookMin,
-      servings:f.servings, categoryIds:f.categoryIds, ingredients:cleanIngredients, spices:cleanSpices, steps:cleanSteps
+      servings:f.servings, categoryIds:f.categoryIds, ingredients:cleanIngredients, spices:cleanSpices, steps:cleanSteps,
+      stepsTableText:cleanStepsTableText
     });
     showToast('Receta actualizada');
   } else {
     state.recipes.push({
       id:uid('rec'), name:f.name.trim(), photo:f.photo||'', prepMin:f.prepMin, cookMin:f.cookMin,
-      servings:f.servings, categoryIds:f.categoryIds, ingredients:cleanIngredients, spices:cleanSpices, steps:cleanSteps
+      servings:f.servings, categoryIds:f.categoryIds, ingredients:cleanIngredients, spices:cleanSpices, steps:cleanSteps,
+      stepsTableText:cleanStepsTableText
     });
     showToast('Receta creada');
   }
