@@ -2773,6 +2773,77 @@ if('serviceWorker' in navigator){
 })();
 
 /* =========================================================
+   GESTO: DESLIZAR DESDE EL BORDE IZQUIERDO PARA VOLVER
+   (sólo si el gesto empieza pegado al borde izquierdo)
+========================================================= */
+(function(){
+  const EDGE_WIDTH = 24;          // px desde el borde izquierdo donde puede empezar el gesto
+  const CLOSE_RATIO = 0.3;        // hay que arrastrar al menos el 30% del ancho para cerrar
+  const CLOSE_VELOCITY = 0.5;     // o ir lo bastante rápido (px/ms) aunque no se llegue al 30%
+
+  const screens = [
+    { overlay: '#view-detail',      close: () => closeRecipeDetail() },
+    { overlay: '#view-form',        close: () => closeRecipeForm() },
+    { overlay: '#view-ingredients', close: () => $('#view-ingredients').classList.remove('open') }
+  ];
+
+  screens.forEach(({overlay, close}) => {
+    const el = $(overlay);
+    if(!el) return;
+
+    let startX=0, startY=0, currentDx=0, dragging=false, startTime=0, width=0, vertical=false;
+
+    el.addEventListener('touchstart', (e) => {
+      if(!el.classList.contains('open')) return;
+      const t = e.touches[0];
+      if(t.clientX > EDGE_WIDTH) return; // sólo si el toque empieza pegado al borde izquierdo
+      startX = t.clientX; startY = t.clientY; currentDx = 0;
+      startTime = Date.now();
+      width = el.offsetWidth;
+      dragging = true; vertical = false;
+      el.style.transition = 'none';
+    }, {passive:true});
+
+    el.addEventListener('touchmove', (e) => {
+      if(!dragging || vertical) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if(Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 12){
+        // gesto principalmente vertical: lo cancelamos y dejamos hacer scroll normal
+        vertical = true; dragging = false;
+        el.style.transition = '';
+        el.style.transform = '';
+        return;
+      }
+      if(dx <= 0) return; // sólo se puede arrastrar hacia la derecha
+      currentDx = dx;
+      el.style.transform = `translateX(${dx}px)`;
+    }, {passive:true});
+
+    function endDrag(){
+      if(!dragging) return;
+      dragging = false;
+      el.style.transition = '';
+      const elapsed = Math.max(1, Date.now() - startTime);
+      const velocity = currentDx / elapsed;
+      const shouldClose = currentDx > width * CLOSE_RATIO || velocity > CLOSE_VELOCITY;
+      if(shouldClose){
+        requestAnimationFrame(() => {
+          close();
+          el.style.transform = '';
+        });
+      } else {
+        el.style.transform = '';
+      }
+    }
+
+    el.addEventListener('touchend', endDrag);
+    el.addEventListener('touchcancel', endDrag);
+  });
+})();
+
+/* =========================================================
    INICIALIZACIÓN
 ========================================================= */
 (async function init(){
