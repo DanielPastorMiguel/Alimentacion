@@ -263,10 +263,9 @@ input,textarea{font-family:inherit; color:inherit;}
 }
 .ingredient-row{
   display:flex; align-items:center; justify-content:space-between; gap:10px;
-  padding:11px 2px; border-bottom:1px solid var(--border);
+  padding:11px 2px;
   font-size:15px;
 }
-.ingredient-row:last-child{border-bottom:none;}
 .ingredient-row .qty{color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0;}
 .step-item{display:flex; gap:12px; padding:12px 0; align-items:flex-start;}
 .step-num{
@@ -280,8 +279,7 @@ input,textarea{font-family:inherit; color:inherit;}
   margin:5px 0 12px; padding-top:8px;
 }
 .step-group-title:first-child{margin-top:0; padding-top:0;}
-.spice-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 2px; border-bottom:1px solid var(--border); font-size:15px;}
-.spice-row:last-child{border-bottom:none;}
+.spice-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 2px; font-size:15px;}
 .spice-row .amt{color:var(--accent); font-weight:700; flex-shrink:0;}
 
 /* ---------- TABLA DE PASOS (diagrama ingrediente -> operación) ---------- */
@@ -1396,7 +1394,6 @@ function buildStepsTableHtml(r, grouped){
 function renderDetail(){
   const r=state.recipes.find(x=>x.id===detailState.recipeId);
   if(!r) return;
-  const factor = detailState.servings / r.servings;
   const grouped = classifyRecipeItems(r);
   const body=$('#detail-body');
   body.innerHTML=`
@@ -1429,30 +1426,43 @@ function renderDetail(){
       <button class="btn btn-primary" id="btn-add-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>Planificar</button>
     </div>
   `;
-  const ingRows=$('#ingredient-rows');
-  ingRows.innerHTML = grouped.ingredients.map(i=>`<div class="ingredient-row"><span>${i.name}</span><span class="qty">${formatRecipeItemAmount(i,factor)}</span></div>`).join('');
-  if(grouped.spices.length){
-    const spiceRows=$('#spice-rows');
-    spiceRows.innerHTML = grouped.spices.map(s=>`<div class="spice-row"><span>${s.name}</span><span class="amt">${formatRecipeItemAmount(s,factor)}</span></div>`).join('');
-  }
   const photoEl=body.querySelector('.detail-photo');
   if(photoEl && r.photo){
     photoEl.style.cursor='pointer';
     photoEl.addEventListener('click',()=>openPhotoLightbox(r.photo));
   }
-  renderStepsView(r, grouped);
   $$('#steps-view-seg .shop-seg-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       if(detailState.stepsView===btn.dataset.view) return;
       detailState.stepsView=btn.dataset.view;
-      renderDetail();
+      $$('#steps-view-seg .shop-seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===detailState.stepsView));
+      renderStepsView(r, classifyRecipeItems(r));
     });
   });
 
-  $('#serv-minus').addEventListener('click',()=>{ if(detailState.servings>1){ detailState.servings--; renderDetail(); }});
-  $('#serv-plus').addEventListener('click',()=>{ detailState.servings++; renderDetail(); });
+  $('#serv-minus').addEventListener('click',()=>{ if(detailState.servings>1){ detailState.servings--; updateDetailServings(); }});
+  $('#serv-plus').addEventListener('click',()=>{ detailState.servings++; updateDetailServings(); });
   $('#btn-add-cart').addEventListener('click',()=>openAddToCartSheet(r.id, detailState.servings));
   $('#btn-add-plan').addEventListener('click',()=>openAddToPlannerSheet(r.id, detailState.servings));
+
+  updateDetailServings();
+}
+
+// Actualiza solo lo que depende de las porciones (cantidades y contador),
+// sin volver a construir la foto ni el resto de la ficha, para que la
+// imagen no parpadee/recargue al pulsar +/-.
+function updateDetailServings(){
+  const r=state.recipes.find(x=>x.id===detailState.recipeId);
+  if(!r) return;
+  const factor = detailState.servings / r.servings;
+  const grouped = classifyRecipeItems(r);
+  const countEl=$('#serv-count');
+  if(countEl) countEl.textContent = detailState.servings;
+  const ingRows=$('#ingredient-rows');
+  if(ingRows) ingRows.innerHTML = grouped.ingredients.map(i=>`<div class="ingredient-row"><span>${i.name}</span><span class="qty">${formatRecipeItemAmount(i,factor)}</span></div>`).join('');
+  const spiceRows=$('#spice-rows');
+  if(spiceRows) spiceRows.innerHTML = grouped.spices.map(s=>`<div class="spice-row"><span>${s.name}</span><span class="amt">${formatRecipeItemAmount(s,factor)}</span></div>`).join('');
+  renderStepsView(r, grouped);
 }
 
 /* =========================================================
