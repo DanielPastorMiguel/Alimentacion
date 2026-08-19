@@ -101,7 +101,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .panel{
   position:absolute; inset:0;
   overflow-y:auto; overflow-x:hidden;
-  padding:0 20px calc(96px + var(--safe-bottom));
+  padding:0 20px calc(82px + var(--safe-bottom));
   opacity:0; pointer-events:none; transform:translateY(6px);
   transition:opacity .2s ease, transform .2s ease;
 }
@@ -111,7 +111,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .tabbar{
   position:absolute; left:0; right:0; bottom:0;
   display:flex;
-  padding:8px 10px calc(10px + var(--safe-bottom));
+  padding:5px 10px calc(6px + var(--safe-bottom));
   background:rgba(20,23,15,0.86);
   backdrop-filter:blur(20px) saturate(160%);
   -webkit-backdrop-filter:blur(20px) saturate(160%);
@@ -122,8 +122,8 @@ input,textarea{font-family:inherit; color:inherit;}
   user-select:none;
 }
 .tab-btn{
-  flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
-  padding:6px 4px 4px; border-radius:14px; color:var(--text-mute);
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:5px 4px 3px; border-radius:14px; color:var(--text-mute);
   transition:color .15s ease, transform .15s ease;
 }
 .tab-btn.active{color:var(--accent);}
@@ -579,8 +579,9 @@ td.st-op .st-op-label{
 .shop-item.bought .shop-item-name, .shop-item.bought .shop-breakdown{text-decoration:line-through; color:var(--text-mute);}
 .shop-item-name .total{color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0;}
 .shop-item.bought .shop-item-name .total{color:var(--text-mute);}
+.shop-item-name .total.partial-total{color:var(--text-mute); text-decoration:line-through;}
 .shop-breakdown{font-size:12.5px; color:var(--text-mute); margin-top:3px; line-height:1.5;}
-.shop-progress-note{font-size:12.5px; color:var(--accent); margin-top:3px; font-weight:600;}
+.shop-remaining-note{font-size:12.5px; color:var(--accent); margin-top:3px; font-weight:700; font-variant-numeric:tabular-nums;}
 
 /* ---------- BOTTOM SHEET ---------- */
 .sheet-backdrop{
@@ -2283,9 +2284,7 @@ function renderShoppingAggregated(wrap){
     const breakdownTxt = group.breakdown && group.breakdown.length
       ? group.breakdown.map(b=>`${b.recipe}: ${fmtQty(b.qty)} ${group.unit||''}`.trim()).join(' · ')
       : '';
-    const progressTxt = group.partial
-      ? `Comprado: ${fmtQty(group.boughtQty)} ${group.unit||''}`.trim()+` · Falta: ${fmtQty(group.qty-group.boughtQty)} ${group.unit||''}`.trim()
-      : '';
+    const remainingTxt = group.partial ? `${fmtQty(group.qty-group.boughtQty)} ${group.unit||''}`.trim() : '';
     const statusClass = group.bought?'bought':(group.partial?'partial':'');
     const partialStyle = group.partial ? ` style="--partial-pct:${Math.min(100,Math.round((group.boughtQty/group.qty)*100))}%"` : '';
     swipeWrap.innerHTML=`
@@ -2293,9 +2292,9 @@ function renderShoppingAggregated(wrap){
       <div class="shop-item ${statusClass}">
         <div class="shop-check"${partialStyle}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
         <div class="shop-item-body">
-          <div class="shop-item-name"><span>${group.name}</span>${totalTxt?`<span class="total">${totalTxt}</span>`:''}</div>
+          <div class="shop-item-name"><span>${group.name}</span>${totalTxt?`<span class="total${group.partial?' partial-total':''}">${totalTxt}</span>`:''}</div>
           ${breakdownTxt?`<div class="shop-breakdown">${breakdownTxt}</div>`:''}
-          ${progressTxt?`<div class="shop-progress-note">${progressTxt}</div>`:''}
+          ${remainingTxt?`<div class="shop-remaining-note">Falta: ${remainingTxt}</div>`:''}
         </div>
       </div>`;
     const itemEl=swipeWrap.querySelector('.shop-item');
