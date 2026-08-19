@@ -117,6 +117,9 @@ input,textarea{font-family:inherit; color:inherit;}
   -webkit-backdrop-filter:blur(20px) saturate(160%);
   border-top:1px solid var(--border);
   z-index:20;
+  touch-action:none;
+  -webkit-user-select:none;
+  user-select:none;
 }
 .tab-btn{
   flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
@@ -570,12 +573,14 @@ td.st-op .st-op-label{
 .shop-check svg{width:13px; height:13px; opacity:0;}
 .shop-item.bought .shop-check{background:var(--accent); border-color:var(--accent);}
 .shop-item.bought .shop-check svg{opacity:1; color:var(--accent-ink);}
+.shop-item.partial .shop-check{border-color:var(--accent); background:conic-gradient(var(--accent) var(--partial-pct,50%), transparent 0);}
 .shop-item-body{flex:1; min-width:0;}
 .shop-item-name{font-size:15.5px; font-weight:700; display:flex; justify-content:space-between; gap:8px;}
 .shop-item.bought .shop-item-name, .shop-item.bought .shop-breakdown{text-decoration:line-through; color:var(--text-mute);}
 .shop-item-name .total{color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0;}
 .shop-item.bought .shop-item-name .total{color:var(--text-mute);}
 .shop-breakdown{font-size:12.5px; color:var(--text-mute); margin-top:3px; line-height:1.5;}
+.shop-progress-note{font-size:12.5px; color:var(--accent); margin-top:3px; font-weight:600;}
 
 /* ---------- BOTTOM SHEET ---------- */
 .sheet-backdrop{
@@ -907,7 +912,8 @@ const state = {
   shopping: {
     recipeEntries: [],   // {id, recipeId, servings} — recetas añadidas (planificador o manualmente), con raciones ajustables
     manualItems: [],     // {id, name, qty, unit, bought} — añadidos desde "Añadir a la cesta" o como texto libre
-    boughtIngredientIds: [],   // ingredientId marcados como comprados (agregados desde recipeEntries)
+    boughtIngredientIds: [],   // ingredientId marcados como comprados (compatibilidad con copias de seguridad antiguas; ya no se usa para marcar)
+    boughtEntryKeys: [],  // `${recipeEntryId}|${ingredientId}` marcados como comprados, por cada aparición de la receta
     excludedIngredientIds: []  // ingredientId excluidos de la vista "Agregado" (borrados con swipe)
   }
 };
@@ -1228,6 +1234,50 @@ function classifyRecipeItems(r){
   });
   return {ingredients, spices};
 }
+// Convierte texto libre de cantidad ("1/2", "1 1/2", "200") a número.
+// Devuelve '' si no se puede interpretar.
+function parseAmountNumber(str){
+  if(str==null) return '';
+  const s=String(str).trim();
+  if(!s) return '';
+  const mixed=s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if(mixed){
+    const whole=Number(mixed[1]), num=Number(mixed[2]), den=Number(mixed[3]);
+    if(den) return whole + num/den;
+  }
+  const frac=s.match(/^(\d+)\/(\d+)$/);
+  if(frac){
+    const num=Number(frac[1]), den=Number(frac[2]);
+    if(den) return num/den;
+  }
+  const n=Number(s.replace(',','.'));
+  return isNaN(n) ? '' : n;
+}
+
+// Convierte un item de receta (ya clasificado como ingrediente por
+// classifyRecipeItems) a la fila del formulario de INGREDIENTE,
+// conservando la cantidad/unidad aunque se guardara originalmente como
+// especia (item._shape==='spice'), para no perder el dato al cambiar el
+// tipo del alimento maestro entre ingrediente y especia.
+function itemToIngredientRow(item){
+  if(item._shape==='ingredient'){
+    return {name:item.name, qty:item.qty!=null?item.qty:'', unit:item.unit!=null?item.unit:''};
+  }
+  const qty=parseAmountNumber(item.amount);
+  return {name:item.name, qty: qty!==''?qty:'', unit: item.amount?'cucharadas':''};
+}
+
+// Convierte un item de receta (ya clasificado como especia) a la fila del
+// formulario de ESPECIA, conservando la cantidad/unidad aunque se guardara
+// originalmente como ingrediente (item._shape==='ingredient').
+function itemToSpiceRow(item){
+  if(item._shape==='spice'){
+    return {name:item.name, amount:item.amount!=null?item.amount:''};
+  }
+  const qtyPart=(item.qty!=null && item.qty!=='') ? String(item.qty) : '';
+  const combined=[qtyPart, item.unit].filter(Boolean).join(' ');
+  return {name:item.name, amount: combined};
+}
 function formatRecipeItemAmount(item, factor=1){
   if(item._shape==='ingredient'){
     return `${fmtQty((Number(item.qty)||0)*factor)} ${item.unit||''}`.trim();
@@ -1418,8 +1468,8 @@ function openRecipeForm(recipeId){
     formState={
       id:r.id, name:r.name, photo:r.photo, prepMin:r.prepMin, cookMin:r.cookMin, servings:r.servings,
       categoryIds:[...r.categoryIds],
-      ingredients:grouped.ingredients.map(i=>({name:i.name, qty:i.qty!=null?i.qty:'', unit:i.unit!=null?i.unit:''})),
-      spices:grouped.spices.map(s=>({name:s.name, amount:s.amount!=null?s.amount:(s.qty!=null?String(s.qty):'')})),
+      ingredients:grouped.ingredients.map(itemToIngredientRow),
+      spices:grouped.spices.map(itemToSpiceRow),
       steps:r.steps.map(s=>({type:s.type, text:s.text}))
     };
     $('#form-title').textContent='Editar receta';
@@ -2163,7 +2213,10 @@ function addManualShoppingItems(items){
   if(currentTab==='compra') renderShopping();
 }
 
-/* Agrega los ingredientes (escalados) de todas las recipeEntries + los manualItems en filas únicas. */
+/* Agrega los ingredientes (escalados) de todas las recipeEntries + los manualItems en filas únicas.
+   El estado de "comprado" se guarda por cada aparición de la receta (entryKey = recipeEntryId+ingredientId),
+   así que si la misma receta está añadida dos veces, marcar un ingrediente en una de ellas no afecta a la
+   otra: la fila agregada solo se tacha cuando TODAS las apariciones están marcadas. */
 function computeAggregatedGroups(){
   const map={};
   state.shopping.recipeEntries.forEach(entry=>{
@@ -2173,17 +2226,24 @@ function computeAggregatedGroups(){
       if(state.shopping.excludedIngredientIds.includes(i.ingredientId)) return;
       const key='ing:'+i.ingredientId+'|'+normalize(i.unit);
       if(!map[key]) map[key]={
-        key, ingredientId:i.ingredientId, name:i.name, unit:i.unit, qty:0, breakdown:[],
-        bought:state.shopping.boughtIngredientIds.includes(i.ingredientId), isManual:false
+        key, ingredientId:i.ingredientId, name:i.name, unit:i.unit, qty:0, boughtQty:0, breakdown:[], entryKeys:[], isManual:false
       };
-      map[key].qty += i.scaledQty;
-      const src=map[key].breakdown.find(b=>b.recipe===r.name);
-      if(src) src.qty += i.scaledQty; else map[key].breakdown.push({recipe:r.name, qty:i.scaledQty});
+      const g=map[key];
+      g.qty += i.scaledQty;
+      const entryKey=entry.id+'|'+i.ingredientId;
+      g.entryKeys.push(entryKey);
+      if(state.shopping.boughtEntryKeys.includes(entryKey)) g.boughtQty += i.scaledQty;
+      const src=g.breakdown.find(b=>b.recipe===r.name);
+      if(src) src.qty += i.scaledQty; else g.breakdown.push({recipe:r.name, qty:i.scaledQty});
     });
   });
-  const recipeGroups=Object.values(map);
+  const recipeGroups=Object.values(map).map(g=>{
+    const bought = g.qty>0 && g.boughtQty >= g.qty - 1e-6;
+    const partial = !bought && g.boughtQty > 1e-6;
+    return {...g, bought, partial};
+  });
   const manualGroups=state.shopping.manualItems.map(it=>({
-    key:'manual:'+it.id, manualId:it.id, name:it.name, unit:it.unit, qty:it.qty, breakdown:it.breakdown, bought:it.bought, isManual:true
+    key:'manual:'+it.id, manualId:it.id, name:it.name, unit:it.unit, qty:it.qty, breakdown:it.breakdown, bought:it.bought, partial:false, isManual:true
   }));
   return [...recipeGroups, ...manualGroups];
 }
@@ -2223,13 +2283,19 @@ function renderShoppingAggregated(wrap){
     const breakdownTxt = group.breakdown && group.breakdown.length
       ? group.breakdown.map(b=>`${b.recipe}: ${fmtQty(b.qty)} ${group.unit||''}`.trim()).join(' · ')
       : '';
+    const progressTxt = group.partial
+      ? `Comprado: ${fmtQty(group.boughtQty)} ${group.unit||''}`.trim()+` · Falta: ${fmtQty(group.qty-group.boughtQty)} ${group.unit||''}`.trim()
+      : '';
+    const statusClass = group.bought?'bought':(group.partial?'partial':'');
+    const partialStyle = group.partial ? ` style="--partial-pct:${Math.min(100,Math.round((group.boughtQty/group.qty)*100))}%"` : '';
     swipeWrap.innerHTML=`
       <div class="swipe-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
-      <div class="shop-item ${group.bought?'bought':''}">
-        <div class="shop-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="shop-item ${statusClass}">
+        <div class="shop-check"${partialStyle}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
         <div class="shop-item-body">
           <div class="shop-item-name"><span>${group.name}</span>${totalTxt?`<span class="total">${totalTxt}</span>`:''}</div>
           ${breakdownTxt?`<div class="shop-breakdown">${breakdownTxt}</div>`:''}
+          ${progressTxt?`<div class="shop-progress-note">${progressTxt}</div>`:''}
         </div>
       </div>`;
     const itemEl=swipeWrap.querySelector('.shop-item');
@@ -2238,9 +2304,15 @@ function renderShoppingAggregated(wrap){
         const it=state.shopping.manualItems.find(x=>x.id===group.manualId);
         if(it) it.bought=!it.bought;
       } else {
-        const idx=state.shopping.boughtIngredientIds.indexOf(group.ingredientId);
-        if(idx>=0) state.shopping.boughtIngredientIds.splice(idx,1);
-        else state.shopping.boughtIngredientIds.push(group.ingredientId);
+        // Si no está totalmente comprado, marcamos todas las apariciones de este
+        // ingrediente (en cada receta añadida) como compradas; si ya lo estaba,
+        // las desmarcamos todas.
+        const makeBought=!group.bought;
+        group.entryKeys.forEach(k=>{
+          const idx=state.shopping.boughtEntryKeys.indexOf(k);
+          if(makeBought){ if(idx<0) state.shopping.boughtEntryKeys.push(k); }
+          else if(idx>=0) state.shopping.boughtEntryKeys.splice(idx,1);
+        });
       }
       renderShopping();
     });
@@ -2284,7 +2356,8 @@ function renderShoppingByRecipe(wrap){
       ingsWrap.innerHTML='<div class="shop-recipe-ing-row" style="color:var(--text-mute);">Sin ingredientes en la lista</div>';
     } else {
       ing.forEach(i=>{
-        const bought=state.shopping.boughtIngredientIds.includes(i.ingredientId);
+        const entryKey=entry.id+'|'+i.ingredientId;
+        const bought=state.shopping.boughtEntryKeys.includes(entryKey);
         const row=document.createElement('div');
         row.className='shop-recipe-ing-row'+(bought?' bought':'');
         row.innerHTML=`
@@ -2295,9 +2368,9 @@ function renderShoppingByRecipe(wrap){
         `;
         row.addEventListener('click',(ev)=>{
           if(ev.target.closest('.del-ing-row')) return;
-          const idx=state.shopping.boughtIngredientIds.indexOf(i.ingredientId);
-          if(idx>=0) state.shopping.boughtIngredientIds.splice(idx,1);
-          else state.shopping.boughtIngredientIds.push(i.ingredientId);
+          const idx=state.shopping.boughtEntryKeys.indexOf(entryKey);
+          if(idx>=0) state.shopping.boughtEntryKeys.splice(idx,1);
+          else state.shopping.boughtEntryKeys.push(entryKey);
           renderShopping();
         });
         row.querySelector('.del-ing-row').addEventListener('click',()=>{
@@ -2364,7 +2437,7 @@ $('#shop-clear-all').addEventListener('click',()=>{
     bodyBuilder:(body)=>{ body.innerHTML=`<p style="color:var(--text-dim); font-size:14.5px; line-height:1.5;">Se eliminarán los ${total} artículos de tu lista de la compra. Esta acción no se puede deshacer.</p>`; },
     footerLabel:'Vaciar lista',
     onConfirm:()=>{
-      state.shopping={recipeEntries:[], manualItems:[], boughtIngredientIds:[], excludedIngredientIds:[]};
+      state.shopping={recipeEntries:[], manualItems:[], boughtIngredientIds:[], boughtEntryKeys:[], excludedIngredientIds:[]};
       renderShopping();
       showToast('Lista vaciada');
     }
@@ -2491,6 +2564,7 @@ async function loadState(){
       state.shopping.recipeEntries = state.shopping.recipeEntries||[];
       state.shopping.manualItems = state.shopping.manualItems||[];
       state.shopping.boughtIngredientIds = state.shopping.boughtIngredientIds||[];
+      state.shopping.boughtEntryKeys = state.shopping.boughtEntryKeys||[];
       state.shopping.excludedIngredientIds = state.shopping.excludedIngredientIds||[];
       return true; // ya había datos guardados
     }
@@ -2650,7 +2724,6 @@ function openBackupSheet(){
     title:'Copia de seguridad',
     bodyBuilder:(body)=>{
       body.innerHTML=`
-        <p class="subsection-hint">Guarda un archivo con tus recetas (incluidas las fotos) y tus alimentos, o restaura uno guardado antes. El planificador y la lista de la compra no se incluyen.</p>
         <button type="button" class="btn btn-primary btn-full" id="backup-export-btn" style="margin-top:6px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
           Exportar copia de seguridad
