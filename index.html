@@ -60,6 +60,10 @@ body{
   max-width:560px;
   margin:0 auto;
   isolation:isolate;
+  overflow:hidden;
+}
+@media (orientation:landscape){
+  #app{ max-width:100%; }
 }
 button{font-family:inherit; -webkit-appearance:none; appearance:none; border:none; background:none; color:inherit; cursor:pointer;}
 input,textarea{font-family:inherit; color:inherit;}
@@ -309,6 +313,13 @@ td.st-global{
   text-align:center; vertical-align:middle; white-space:normal;
 }
 td.st-empty{background:var(--surface); min-width:40px;}
+/* Cuando un alimento no entra en una o varias columnas seguidas justo
+   tras su nombre, esas celdas vacías se fusionan visualmente con la
+   celda del nombre (sin borde entre ellas), como si estuvieran
+   agrupadas, y el nombre queda alineado a la izquierda. */
+td.st-ing.st-ing-merged{border-right:none; text-align:left;}
+td.st-empty.st-empty-merged{border-left:none;}
+td.st-empty.st-empty-merged-cont{border-right:none;}
 
 /* ---------- Editor manual de la tabla de pasos (formulario) ---------- */
 .field-label-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:0;}
@@ -320,9 +331,9 @@ td.st-empty{background:var(--surface); min-width:40px;}
 }
 .help-btn-sm:active{background:var(--surface-3);}
 .steps-table-editor{
-  width:100%; min-height:280px; max-height:70vh; background:var(--surface-2); border:1px solid var(--border-strong);
+  width:100%; min-height:280px; background:var(--surface-2); border:1px solid var(--border-strong);
   border-radius:var(--radius-s); padding:12px 13px; font-size:13.5px; line-height:1.6; color:var(--text);
-  outline:none; resize:vertical; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  outline:none; resize:none; overflow:hidden; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 .steps-table-editor:focus{border-color:var(--accent);}
 .steps-table-hint{font-size:12px; color:var(--text-mute); margin:8px 0 0; line-height:1.5;}
@@ -708,6 +719,40 @@ td.st-empty{background:var(--surface); min-width:40px;}
   background:rgba(244,242,234,0.1); color:var(--text);
 }
 .photo-lightbox-close svg{width:18px; height:18px;}
+
+/* ---------- TABLE LIGHTBOX (tabla de pasos a pantalla completa) ---------- */
+.steps-table-wrap{position:relative; cursor:pointer;}
+.steps-table-expand-hint{
+  position:absolute; top:6px; right:6px; z-index:2;
+  width:26px; height:26px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(244,242,234,0.1); color:var(--text-dim);
+  pointer-events:none;
+}
+.steps-table-expand-hint svg{width:13px; height:13px;}
+.table-lightbox{
+  position:fixed; inset:0; background:rgba(6,7,4,0.97);
+  z-index:210; opacity:0; pointer-events:none; transition:opacity .2s ease;
+  display:flex; flex-direction:column;
+}
+.table-lightbox.open{opacity:1; pointer-events:auto;}
+.table-lightbox-close{
+  position:absolute; top:calc(var(--safe-top) + 14px); right:20px; z-index:2;
+  width:38px; height:38px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(244,242,234,0.1); color:var(--text);
+}
+.table-lightbox-close svg{width:18px; height:18px;}
+.table-lightbox-scroll{
+  flex:1; overflow:auto; -webkit-overflow-scrolling:touch;
+  padding:calc(var(--safe-top) + 64px) 20px calc(var(--safe-bottom) + 30px);
+}
+.table-lightbox-scroll .steps-table-wrap{margin:0; padding:0; overflow:visible; cursor:default;}
+.table-lightbox-scroll table.steps-dgm{width:max-content; min-width:100%;}
+.table-lightbox-scroll table.steps-dgm td{padding:14px 20px; font-size:15px;}
+.table-lightbox-scroll td.st-ing .st-ing-name{font-size:15px;}
+.table-lightbox-scroll td.st-op .st-op-label{font-size:12.5px;}
+.table-lightbox-scroll td.st-global{font-size:14.5px;}
 </style>
 </head>
 <body>
@@ -839,6 +884,11 @@ td.st-empty{background:var(--surface); min-width:40px;}
     <img id="photo-lightbox-img" src="" alt="">
   </div>
 
+  <div class="table-lightbox" id="table-lightbox">
+    <button type="button" class="table-lightbox-close" id="table-lightbox-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="table-lightbox-scroll" id="table-lightbox-scroll"></div>
+  </div>
+
   <div class="install-banner" id="install-banner">
     <div class="ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="5" y1="17.5" x2="19" y2="17.5"/></svg></div>
     <div class="ib-body">
@@ -897,6 +947,17 @@ function openPhotoLightbox(src){
 function closePhotoLightbox(){ $('#photo-lightbox').classList.remove('open'); }
 $('#photo-lightbox').addEventListener('click',closePhotoLightbox);
 $('#photo-lightbox-close').addEventListener('click',closePhotoLightbox);
+function openTableLightbox(tableEl){
+  if(!tableEl) return;
+  $('#table-lightbox-scroll').innerHTML = `<div class="steps-table-wrap">${tableEl.outerHTML}</div>`;
+  $('#table-lightbox').classList.add('open');
+}
+function closeTableLightbox(){
+  $('#table-lightbox').classList.remove('open');
+  $('#table-lightbox-scroll').innerHTML='';
+}
+$('#table-lightbox').addEventListener('click',e=>{ if(e.target.id==='table-lightbox' || e.target.id==='table-lightbox-scroll') closeTableLightbox(); });
+$('#table-lightbox-close').addEventListener('click',closeTableLightbox);
 function photoUrl(seed){ return `https://picsum.photos/seed/${encodeURIComponent(seed)}/400/400`; }
 // Foto negra usada como sustituto cuando una receta no tiene fotografía.
 const BLANK_PHOTO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC';
@@ -1326,6 +1387,13 @@ function renderStepsView(r){
   if(!wrap) return;
   if(detailState.stepsView==='table'){
     wrap.innerHTML = buildManualStepsTableHtml(r.stepsTableText);
+    const tableWrap=wrap.querySelector('.steps-table-wrap');
+    if(tableWrap){
+      tableWrap.addEventListener('click',()=>{
+        const table=tableWrap.querySelector('table.steps-dgm');
+        openTableLightbox(table);
+      });
+    }
   } else {
     let stepCounter=0;
     wrap.innerHTML = r.steps.map(s=>{
@@ -1385,6 +1453,7 @@ function buildManualStepsGrid(ingEntries){
 function stepsTableEmptyHtml(){
   return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><h3>Sin datos suficientes</h3><p>Escribe el texto de la tabla en la edición de la receta (Pasos → vista Tabla).</p></div>`;
 }
+const STEPS_TABLE_EXPAND_HINT = `<span class="steps-table-expand-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></span>`;
 function buildManualStepsTableHtml(text){
   const entries=parseStepsTableText(text);
   if(entries.length===0) return stepsTableEmptyHtml();
@@ -1395,7 +1464,7 @@ function buildManualStepsTableHtml(text){
     // Sólo hay pasos globales, sin ningún alimento: se listan como filas
     // simples de una sola columna.
     const rows=entries.map(e=>`<tr><td class="st-global" colspan="1">${escapeHtml(e.text)}</td></tr>`).join('');
-    return `<div class="steps-table-wrap"><table class="steps-dgm"><tbody>${rows}</tbody></table></div>`;
+    return `<div class="steps-table-wrap">${STEPS_TABLE_EXPAND_HINT}<table class="steps-dgm"><tbody>${rows}</tbody></table></div>`;
   }
 
   // Para cada columna, agrupa en tramos contiguos las filas que comparten
@@ -1425,22 +1494,32 @@ function buildManualStepsTableHtml(text){
     }
     ingCounter++;
     const r=ingCounter;
-    let tds=`<td class="st-ing"><span class="st-ing-name">${escapeHtml(g.labels[r])}</span></td>`;
+    // Si el alimento no entra en una o varias columnas seguidas justo
+    // después de su nombre (posiciones vacías al principio), esas celdas
+    // se "fusionan" visualmente con la celda del nombre: se les quita el
+    // borde que las separa para que parezca una única celda agrupada,
+    // manteniendo el nombre alineado a la izquierda.
+    let leadEmpty=0;
+    while(leadEmpty<g.numCols && mark[r][leadEmpty]===0) leadEmpty++;
+    let tds=`<td class="st-ing${leadEmpty>0?' st-ing-merged':''}"><span class="st-ing-name">${escapeHtml(g.labels[r])}</span></td>`;
     for(let c=0;c<g.numCols;c++){
       const m=mark[r][c];
       if(m===-1) continue; // cubierta por el rowspan de una fila anterior
-      if(m===0){ tds+=`<td class="st-empty"></td>`; }
+      if(m===0){
+        const merged = c<leadEmpty;
+        const cont = merged && c<leadEmpty-1;
+        tds+=`<td class="st-empty${merged?' st-empty-merged':''}${cont?' st-empty-merged-cont':''}"></td>`;
+      }
       else { tds+=`<td class="st-op" rowspan="${m}"><span class="st-op-label">${escapeHtml(g.grid[r][c])}</span></td>`; }
     }
     return `<tr>${tds}</tr>`;
   }).join('');
-  return `<div class="steps-table-wrap"><table class="steps-dgm"><tbody>${rowsHtml}</tbody></table></div>`;
+  return `<div class="steps-table-wrap">${STEPS_TABLE_EXPAND_HINT}<table class="steps-dgm"><tbody>${rowsHtml}</tbody></table></div>`;
 }
 
 function stepsTableHelpSheetBody(body){
   body.innerHTML=`
     <div class="help-sheet-body">
-      <p>La tabla ya no se genera sola: escribe tú el texto siguiendo estas reglas.</p>
       <ul>
         <li>Cada línea empieza por <code>-</code>.</li>
         <li>Paso sin alimento al principio (p.ej. <code>- Precalienta el horno</code>): se considera un paso global y ocupa toda la fila.</li>
@@ -1570,6 +1649,11 @@ function openRecipeForm(recipeId){
 function closeRecipeForm(){ $('#view-form').classList.remove('open'); }
 $('#form-back').addEventListener('click',closeRecipeForm);
 
+function autoGrowStepsTextarea(el){
+  if(!el) return;
+  el.style.height='auto';
+  el.style.height=el.scrollHeight+'px';
+}
 function renderForm(){
   const body=$('#form-body'); const f=formState;
   body.innerHTML=`
@@ -1620,15 +1704,13 @@ function renderForm(){
         <button type="button" class="add-row-btn" id="f-add-step"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Añadir paso</button>
       </div>
       <div id="f-steps-table-panel"${f.stepsEditView!=='table'?' style="display:none"':''}>
-        <div class="field-label-row" style="margin-bottom:8px;">
-          <span class="subsection-hint" style="margin:0;">Escribe la tabla a mano, una línea por fila</span>
+        <div class="field-label-row" style="margin-bottom:8px; justify-content:flex-end;">
           <button type="button" class="help-btn-sm" id="f-steps-table-help">?</button>
         </div>
         <textarea class="steps-table-editor" id="f-steps-table-text" placeholder="- Precalienta el horno a 180°C
 - Patata: [Sofreír, Integrar, Cuajar, Batir]
 - Cebolla 200g: [Sofreír, Integrar, Cuajar, Batir]
 - Huevos: [, Integrar, Cuajar, Batir]">${f.stepsTableText||''}</textarea>
-        <p class="steps-table-hint">Cada línea empieza por “-”. Un alimento va seguido de <code>: [col1, col2, ...]</code>, una posición por columna. Deja una posición vacía si ese alimento no pasa por esa columna; el mismo texto en la misma posición de filas seguidas las agrupa. Sin alimento al principio = paso global (ocupa toda la fila). Toca la “?” para ver el formato completo con ejemplo.</p>
       </div>
     </div>
     ${f.id?`<button class="btn btn-ghost-danger btn-full" id="f-delete" style="margin-top:6px;">Eliminar receta</button>`:''}
@@ -1675,9 +1757,11 @@ function renderForm(){
       $$('#f-steps-seg .shop-seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===f.stepsEditView));
       $('#f-steps-seq-panel').style.display = f.stepsEditView==='table' ? 'none' : '';
       $('#f-steps-table-panel').style.display = f.stepsEditView==='table' ? '' : 'none';
+      if(f.stepsEditView==='table') autoGrowStepsTextarea($('#f-steps-table-text'));
     });
   });
-  $('#f-steps-table-text').addEventListener('input',e=>f.stepsTableText=e.target.value);
+  $('#f-steps-table-text').addEventListener('input',e=>{ f.stepsTableText=e.target.value; autoGrowStepsTextarea(e.target); });
+  if(f.stepsEditView==='table') autoGrowStepsTextarea($('#f-steps-table-text'));
   $('#f-steps-table-help').addEventListener('click',openStepsTableHelpSheet);
   if(f.id) $('#f-delete').addEventListener('click',()=>{
     state.recipes = state.recipes.filter(r=>r.id!==f.id);
