@@ -44,6 +44,7 @@
   --font-ui:'Aptos',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
 html,body{height:100%;}
 body{
   margin:0;
@@ -755,7 +756,13 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
 .table-lightbox-scroll table.steps-dgm td{padding:14px 20px; font-size:15px;}
 .table-lightbox-scroll td.st-ing .st-ing-name{font-size:15px;}
 .table-lightbox-scroll td.st-op .st-op-label{font-size:12.5px;}
-.table-lightbox-scroll td.st-global{font-size:12.5px;}
+.table-lightbox-scroll table.steps-dgm td.st-global{font-size:12.5px;}
+.table-lightbox-scroll td.st-op,
+.table-lightbox-scroll td.st-global{
+  -webkit-transform:translateZ(0); transform:translateZ(0);
+}
+.table-lightbox-scroll table.steps-dgm td.st-op{background:rgba(147,178,94,0.14);}
+.table-lightbox-scroll table.steps-dgm td.st-global{background:var(--surface-2);}
 </style>
 </head>
 <body>
@@ -1340,6 +1347,7 @@ function openRecipeDetail(id){
   if(!r) return;
   detailState={recipeId:id, servings:r.servings, stepsView:'seq'};
   renderDetail();
+  $('#detail-body').scrollTop=0;
   $('#view-detail').classList.add('open');
 }
 function closeRecipeDetail(){ $('#view-detail').classList.remove('open'); }
