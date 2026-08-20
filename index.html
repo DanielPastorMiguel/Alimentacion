@@ -38,6 +38,8 @@
   --radius-xl:30px;
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);
+  --safe-right:env(safe-area-inset-right,0px);
   --font-display:'Aptos',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --font-ui:'Aptos',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 }
@@ -61,6 +63,8 @@ body{
   margin:0 auto;
   isolation:isolate;
   overflow:hidden;
+  padding-left:var(--safe-left);
+  padding-right:var(--safe-right);
 }
 @media (orientation:landscape){
   #app{ max-width:100%; }
@@ -114,7 +118,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .tabbar{
   position:absolute; left:0; right:0; bottom:0;
   display:flex;
-  padding:4px 10px calc(3px + var(--safe-bottom));
+  padding:4px calc(var(--safe-right) + 10px) calc(3px + var(--safe-bottom)) calc(var(--safe-left) + 10px);
   background:rgba(20,23,15,0.86);
   backdrop-filter:blur(20px) saturate(160%);
   -webkit-backdrop-filter:blur(20px) saturate(160%);
@@ -211,6 +215,7 @@ input,textarea{font-family:inherit; color:inherit;}
   position:absolute; inset:0; background:var(--bg); z-index:30;
   display:flex; flex-direction:column;
   transform:translateX(100%); transition:transform .28s cubic-bezier(.32,.72,0,1);
+  padding-left:var(--safe-left); padding-right:var(--safe-right);
 }
 .view-overlay.open{transform:translateX(0);}
 .view-header{
@@ -298,7 +303,7 @@ table.steps-dgm{
 table.steps-dgm td{
   border:1px solid var(--border); padding:9px 12px; vertical-align:middle; text-align:center;
 }
-td.st-ing{background:var(--surface); white-space:nowrap;}
+td.st-ing{background:var(--surface); white-space:nowrap; text-align:left;}
 td.st-ing .st-ing-name{font-size:13.5px; font-weight:600;}
 td.st-op{
   background:rgba(147,178,94,0.14); text-align:center; vertical-align:middle;
@@ -309,7 +314,7 @@ td.st-op .st-op-label{
   color:var(--accent); line-height:1.3;
 }
 td.st-global{
-  background:var(--surface-2); color:var(--text-dim); font-size:13px; font-style:italic;
+  background:var(--surface-2); color:var(--text-dim); font-size:11px; font-style:italic;
   text-align:center; vertical-align:middle; white-space:normal;
 }
 td.st-empty{background:var(--surface); min-width:40px;}
@@ -641,6 +646,7 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
   max-height:82%; display:flex; flex-direction:column;
   transform:translateY(100%); transition:transform .28s cubic-bezier(.32,.72,0,1);
   padding-bottom:var(--safe-bottom);
+  padding-left:var(--safe-left); padding-right:var(--safe-right);
 }
 .sheet.open{transform:translateY(0);}
 .sheet-handle{width:36px; height:4px; background:var(--border-strong); border-radius:100px; margin:10px auto 4px;}
@@ -707,13 +713,13 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
 .photo-lightbox{
   position:fixed; inset:0; background:rgba(6,7,4,0.94);
   display:flex; align-items:center; justify-content:center;
-  padding:calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
+  padding:calc(var(--safe-top) + 20px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 20px) calc(var(--safe-left) + 20px);
   z-index:200; opacity:0; pointer-events:none; transition:opacity .2s ease;
 }
 .photo-lightbox.open{opacity:1; pointer-events:auto;}
 .photo-lightbox img{max-width:100%; max-height:100%; border-radius:var(--radius-m); object-fit:contain;}
 .photo-lightbox-close{
-  position:absolute; top:calc(var(--safe-top) + 14px); right:20px;
+  position:absolute; top:calc(var(--safe-top) + 14px); right:calc(var(--safe-right) + 20px);
   width:38px; height:38px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
   background:rgba(244,242,234,0.1); color:var(--text);
@@ -722,14 +728,6 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
 
 /* ---------- TABLE LIGHTBOX (tabla de pasos a pantalla completa) ---------- */
 .steps-table-wrap{position:relative; cursor:pointer;}
-.steps-table-expand-hint{
-  position:absolute; top:6px; right:6px; z-index:2;
-  width:26px; height:26px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  background:rgba(244,242,234,0.1); color:var(--text-dim);
-  pointer-events:none;
-}
-.steps-table-expand-hint svg{width:13px; height:13px;}
 .table-lightbox{
   position:fixed; inset:0; background:rgba(6,7,4,0.97);
   z-index:210; opacity:0; pointer-events:none; transition:opacity .2s ease;
@@ -737,7 +735,7 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
 }
 .table-lightbox.open{opacity:1; pointer-events:auto;}
 .table-lightbox-close{
-  position:absolute; top:calc(var(--safe-top) + 14px); right:20px; z-index:2;
+  position:absolute; top:calc(var(--safe-top) + 14px); right:calc(var(--safe-right) + 20px); z-index:2;
   width:38px; height:38px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
   background:rgba(244,242,234,0.1); color:var(--text);
@@ -745,14 +743,18 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
 .table-lightbox-close svg{width:18px; height:18px;}
 .table-lightbox-scroll{
   flex:1; overflow:auto; -webkit-overflow-scrolling:touch;
-  padding:calc(var(--safe-top) + 64px) 20px calc(var(--safe-bottom) + 30px);
+  padding:calc(var(--safe-top) + 64px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 30px) calc(var(--safe-left) + 20px);
+  touch-action:pan-x pan-y;
 }
 .table-lightbox-scroll .steps-table-wrap{margin:0; padding:0; overflow:visible; cursor:default;}
-.table-lightbox-scroll table.steps-dgm{width:max-content; min-width:100%;}
+.table-lightbox-scroll table.steps-dgm{width:max-content; min-width:100%; transform-origin:0 0; transition:transform .05s linear;}
 .table-lightbox-scroll table.steps-dgm td{padding:14px 20px; font-size:15px;}
 .table-lightbox-scroll td.st-ing .st-ing-name{font-size:15px;}
 .table-lightbox-scroll td.st-op .st-op-label{font-size:12.5px;}
-.table-lightbox-scroll td.st-global{font-size:14.5px;}
+.table-lightbox-scroll td.st-global{font-size:12.5px;}
+@media (orientation:landscape){
+  .table-lightbox-scroll td.st-op .st-op-label{font-size:13.5px;}
+}
 </style>
 </head>
 <body>
@@ -950,6 +952,7 @@ $('#photo-lightbox-close').addEventListener('click',closePhotoLightbox);
 function openTableLightbox(tableEl){
   if(!tableEl) return;
   $('#table-lightbox-scroll').innerHTML = `<div class="steps-table-wrap">${tableEl.outerHTML}</div>`;
+  resetTableLightboxZoom();
   $('#table-lightbox').classList.add('open');
 }
 function closeTableLightbox(){
@@ -958,6 +961,42 @@ function closeTableLightbox(){
 }
 $('#table-lightbox').addEventListener('click',e=>{ if(e.target.id==='table-lightbox' || e.target.id==='table-lightbox-scroll') closeTableLightbox(); });
 $('#table-lightbox-close').addEventListener('click',closeTableLightbox);
+
+// Zoom por gesto de pellizco (pinch) dentro del visor de tabla a pantalla
+// completa. Usamos la propiedad CSS "zoom" (en vez de transform:scale) para
+// que el tamaño de scroll del contenedor crezca de verdad y se pueda
+// desplazar por toda la tabla ampliada.
+let tableLightboxZoom = 1;
+let tableLightboxPinchStartDist = null;
+let tableLightboxPinchStartZoom = 1;
+function resetTableLightboxZoom(){
+  tableLightboxZoom = 1;
+  tableLightboxPinchStartDist = null;
+}
+function touchDist(t0,t1){ return Math.hypot(t0.clientX-t1.clientX, t0.clientY-t1.clientY); }
+(function(){
+  const scrollEl = $('#table-lightbox-scroll');
+  scrollEl.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      tableLightboxPinchStartDist = touchDist(e.touches[0], e.touches[1]);
+      tableLightboxPinchStartZoom = tableLightboxZoom;
+    }
+  },{passive:true});
+  scrollEl.addEventListener('touchmove',e=>{
+    if(e.touches.length===2 && tableLightboxPinchStartDist){
+      const d = touchDist(e.touches[0], e.touches[1]);
+      let z = tableLightboxPinchStartZoom * (d / tableLightboxPinchStartDist);
+      z = Math.min(3.5, Math.max(1, z));
+      tableLightboxZoom = z;
+      const table = scrollEl.querySelector('table.steps-dgm');
+      if(table) table.style.zoom = z;
+      e.preventDefault();
+    }
+  },{passive:false});
+  scrollEl.addEventListener('touchend',e=>{
+    if(e.touches.length<2) tableLightboxPinchStartDist=null;
+  });
+})();
 function photoUrl(seed){ return `https://picsum.photos/seed/${encodeURIComponent(seed)}/400/400`; }
 // Foto negra usada como sustituto cuando una receta no tiene fotografía.
 const BLANK_PHOTO='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC';
@@ -1451,9 +1490,8 @@ function buildManualStepsGrid(ingEntries){
   return {grid, numCols, labels:ingEntries.map(e=>e.label)};
 }
 function stepsTableEmptyHtml(){
-  return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><h3>Sin datos suficientes</h3><p>Escribe el texto de la tabla en la edición de la receta (Pasos → vista Tabla).</p></div>`;
+  return `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><h3>Sin datos suficientes</h3></div>`;
 }
-const STEPS_TABLE_EXPAND_HINT = `<span class="steps-table-expand-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></span>`;
 function buildManualStepsTableHtml(text){
   const entries=parseStepsTableText(text);
   if(entries.length===0) return stepsTableEmptyHtml();
@@ -1464,7 +1502,7 @@ function buildManualStepsTableHtml(text){
     // Sólo hay pasos globales, sin ningún alimento: se listan como filas
     // simples de una sola columna.
     const rows=entries.map(e=>`<tr><td class="st-global" colspan="1">${escapeHtml(e.text)}</td></tr>`).join('');
-    return `<div class="steps-table-wrap">${STEPS_TABLE_EXPAND_HINT}<table class="steps-dgm"><tbody>${rows}</tbody></table></div>`;
+    return `<div class="steps-table-wrap"><table class="steps-dgm"><tbody>${rows}</tbody></table></div>`;
   }
 
   // Para cada columna, agrupa en tramos contiguos las filas que comparten
@@ -1514,7 +1552,7 @@ function buildManualStepsTableHtml(text){
     }
     return `<tr>${tds}</tr>`;
   }).join('');
-  return `<div class="steps-table-wrap">${STEPS_TABLE_EXPAND_HINT}<table class="steps-dgm"><tbody>${rowsHtml}</tbody></table></div>`;
+  return `<div class="steps-table-wrap"><table class="steps-dgm"><tbody>${rowsHtml}</tbody></table></div>`;
 }
 
 function stepsTableHelpSheetBody(body){
