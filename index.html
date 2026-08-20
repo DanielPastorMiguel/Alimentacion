@@ -420,7 +420,8 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
 .subsection-hint{font-size:12.5px; color:var(--text-mute); margin:-4px 0 10px; line-height:1.5;}
 
 /* Pasos con títulos de grupo */
-.step-card{margin-bottom:9px;}
+.step-card{display:flex; align-items:center; gap:6px; margin-bottom:9px;}
+.step-card > .dyn-card{flex:1; min-width:0; margin-bottom:0;}
 .step-card.is-heading .dyn-card{background:var(--surface-2); border-color:var(--border-strong);}
 .step-type-toggle{
   display:flex; gap:6px; margin-bottom:8px;
@@ -469,37 +470,51 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
   background:rgba(227,167,58,0.15); padding:2px 6px; border-radius:100px; margin-left:6px;
 }
 .ing-master-row .actions button.disabled{opacity:.3; pointer-events:none;}
-.cat-sel-row .cnt{font-size:12px; color:var(--text-mute); flex-shrink:0;}
 
-/* Selector de modo (ingredientes/categorías, etc.) - independiente de .shop-seg
-   para no verse afectado por los listeners globales de la lista de la compra. */
-.mode-seg{display:flex; background:var(--surface-2); border-radius:12px; padding:3px; margin-bottom:14px;}
-.mode-seg-btn{flex:1; padding:10px; border-radius:9px; font-size:14px; font-weight:700; color:var(--text-mute);}
-.mode-seg-btn.active{background:var(--accent); color:var(--accent-ink);}
-
-/* Arrastrar y soltar para reordenar (pasos de receta, categorías…) */
+/* ---------- REORDENAR (arrastrar y soltar) ---------- */
 .drag-handle{
-  width:26px; align-self:stretch; display:flex; align-items:center; justify-content:center;
-  color:var(--text-mute); flex-shrink:0; touch-action:none; cursor:grab; -webkit-user-select:none; user-select:none;
+  width:30px; height:36px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  color:var(--text-mute); touch-action:none; cursor:grab;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
 }
-.drag-handle svg{width:16px; height:16px;}
-.drag-handle:active{cursor:grabbing; color:var(--text-dim);}
-.drag-placeholder{border:2px dashed var(--border-strong); border-radius:var(--radius-m); background:var(--surface-2); opacity:.6; box-sizing:border-box;}
+.drag-handle svg{width:16px; height:16px; pointer-events:none;}
+.sortable-item{touch-action:pan-y;}
+.sortable-item.sortable-dragging{
+  position:relative; z-index:30; cursor:grabbing;
+  box-shadow:0 10px 24px rgba(0,0,0,.35); border-radius:var(--radius-m);
+  -webkit-user-select:none; user-select:none;
+}
+.sortable-item.sortable-dragging .drag-handle{cursor:grabbing;}
+.sortable-shift{transition:transform .16s ease;}
+body.sortable-active, body.sortable-active *{-webkit-user-select:none !important; user-select:none !important;}
 
-.step-card{display:flex; align-items:stretch; gap:6px; margin-bottom:9px;}
-.step-card .dyn-card{flex:1; min-width:0; margin-bottom:0;}
-
-.cat-manage-row{display:flex; align-items:center; gap:8px; padding:9px 2px; border-bottom:1px solid var(--border);}
+/* ---------- GESTIÓN DE CATEGORÍAS ---------- */
+.cat-manage-row{display:flex; align-items:center; gap:6px; padding:4px 0 4px 0; border-bottom:1px solid var(--border);}
 .cat-manage-row:last-child{border-bottom:none;}
-.cat-manage-row .n{flex:1; min-width:0; font-size:15px; font-weight:600;}
-.cat-manage-row .cnt{font-size:12px; color:var(--text-mute); flex-shrink:0;}
+.cat-manage-row .name{flex:1; min-width:0; font-size:15px; font-weight:600; padding:8px 0;}
 .cat-manage-row .actions{display:flex; gap:4px; flex-shrink:0;}
 .cat-manage-row .actions button{
-  width:28px; height:28px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--text-mute);
+  width:30px; height:30px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--text-mute);
 }
-.cat-manage-row .actions button svg{width:13px; height:13px;}
+.cat-manage-row .actions button svg{width:14px; height:14px;}
 
-.btn-danger{background:var(--paprika); color:var(--text);}
+/* ---------- POPUP DE CONFIRMACIÓN ---------- */
+.confirm-backdrop{
+  position:fixed; inset:0; z-index:210; background:rgba(6,7,4,0.72);
+  display:flex; align-items:center; justify-content:center; padding:24px;
+  opacity:0; pointer-events:none; transition:opacity .2s ease;
+}
+.confirm-backdrop.open{opacity:1; pointer-events:auto;}
+.confirm-dialog{
+  width:100%; max-width:320px; background:var(--surface-2); border:1px solid var(--border-strong);
+  border-radius:var(--radius-l); padding:22px 20px 18px; box-shadow:0 20px 50px rgba(0,0,0,.5);
+  transform:scale(.94); transition:transform .2s ease;
+}
+.confirm-backdrop.open .confirm-dialog{transform:scale(1);}
+.confirm-dialog h3{font-family:var(--font-display); font-size:18px; font-weight:700; margin:0 0 8px;}
+.confirm-dialog p{font-size:14px; color:var(--text-dim); line-height:1.5; margin:0 0 20px;}
+.confirm-actions{display:flex; gap:10px;}
+.confirm-actions .btn{flex:1;}
 .photo-picker{
   width:100%; height:150px; border-radius:var(--radius-m); border:1.5px dashed var(--border-strong);
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
@@ -887,7 +902,7 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
     <div class="view-body" id="form-body"></div>
   </div>
 
-  <!-- ===== OVERLAY: INGREDIENTES MAESTROS ===== -->
+  <!-- ===== OVERLAY: INGREDIENTES MAESTROS / CATEGORÍAS ===== -->
   <div class="view-overlay" id="view-ingredients">
     <div class="view-header">
       <button class="back-btn" id="ing-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
@@ -895,11 +910,11 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
       <span class="header-actions"><button class="icon-btn" id="ing-add-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></span>
     </div>
     <div class="view-body">
-      <div class="mode-seg" id="ing-mode-seg" style="margin-top:14px;">
-        <button type="button" class="mode-seg-btn active" data-mode="ingredients">Ingredientes</button>
-        <button type="button" class="mode-seg-btn" data-mode="categories">Categorías</button>
+      <div class="shop-seg" id="ing-mode-seg" style="margin-top:14px;">
+        <button type="button" class="shop-seg-btn active" data-mode="ingredients">Ingredientes</button>
+        <button type="button" class="shop-seg-btn" data-mode="categories">Categorías</button>
       </div>
-      <div id="ing-ingredients-panel">
+      <div id="ing-mode-panel-ingredients">
         <div class="search-bar" id="ing-search-bar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input id="ing-search" type="text" placeholder="Buscar alimento…" autocomplete="off">
@@ -907,9 +922,21 @@ td.st-empty.st-empty-merged-cont{border-right:none;}
         </div>
         <div id="ing-master-list"></div>
       </div>
-      <div id="ing-categories-panel" style="display:none;">
-        <p class="subsection-hint">Mantén pulsado el icono de agarre y arrastra para cambiar el orden en que aparecen en Recetas.</p>
+      <div id="ing-mode-panel-categories" style="display:none">
+        <p class="subsection-hint">Mantén pulsado <strong>⠿</strong> y arrastra para cambiar el orden en que aparecen en Recetas.</p>
         <div id="cat-master-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== POPUP: CONFIRMACIÓN ===== -->
+  <div class="confirm-backdrop" id="confirm-backdrop">
+    <div class="confirm-dialog" id="confirm-dialog">
+      <h3 id="confirm-title">Título</h3>
+      <p id="confirm-message">Mensaje</p>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-secondary" id="confirm-cancel-btn">Cancelar</button>
+        <button type="button" class="btn btn-ghost-danger" id="confirm-ok-btn">Eliminar</button>
       </div>
     </div>
   </div>
@@ -1083,6 +1110,118 @@ function createSearchBarEl(placeholder, onInput){
   input.addEventListener('input',()=>onInput(input.value));
   enhanceSearchBar(wrap, val=>onInput(val));
   return {wrapper:wrap, input};
+}
+
+/* =========================================================
+   REORDENAR ARRASTRANDO (arrastre por asa dedicada .drag-handle,
+   sin activar la selección de texto de iOS al mantener pulsado)
+========================================================= */
+// container: el elemento cuyos hijos directos son los "sortable-item".
+// onMove(fromIndex, toIndex): se llama al soltar, si el índice cambió.
+function enableDragReorder(container, onMove){
+  let dragEl=null, pointerId=null, startClientY=0, offsetY=0;
+  let originalRects=[], items=[], draggedIndex=-1, currentIndex=-1;
+
+  function getItems(){ return Array.from(container.children).filter(el=>el.classList.contains('sortable-item')); }
+
+  function onPointerDown(e){
+    const handle=e.target.closest('.drag-handle');
+    if(!handle || !container.contains(handle)) return;
+    const item=handle.closest('.sortable-item');
+    if(!item || item.parentElement!==container) return;
+    e.preventDefault();
+    items=getItems();
+    draggedIndex=items.indexOf(item);
+    if(draggedIndex===-1) return;
+    currentIndex=draggedIndex;
+    originalRects=items.map(el=>el.getBoundingClientRect());
+    dragEl=item;
+    pointerId=e.pointerId;
+    startClientY=e.clientY;
+    offsetY=0;
+    try{ handle.setPointerCapture(pointerId); }catch(err){}
+    dragEl.classList.add('sortable-dragging');
+    document.body.classList.add('sortable-active');
+    document.addEventListener('pointermove', onPointerMove, {passive:false});
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+  }
+
+  function onPointerMove(e){
+    if(!dragEl) return;
+    e.preventDefault();
+    const dy=e.clientY-startClientY;
+    dragEl.style.transform=`translateY(${dy}px)`;
+
+    const draggedRect=originalRects[draggedIndex];
+    const draggedCenter=draggedRect.top+draggedRect.height/2+dy;
+
+    let newIndex=draggedIndex;
+    for(let i=0;i<items.length;i++){
+      if(i===draggedIndex) continue;
+      const rect=originalRects[i];
+      const center=rect.top+rect.height/2;
+      if(i>newIndex && draggedCenter>center) newIndex=i;
+      else if(i<newIndex && draggedCenter<center) newIndex=i;
+    }
+
+    if(newIndex!==currentIndex){
+      const draggedHeight=draggedRect.height;
+      items.forEach((el,i)=>{
+        if(i===draggedIndex) return;
+        el.classList.add('sortable-shift');
+        let shift=0;
+        if(newIndex>draggedIndex && i>draggedIndex && i<=newIndex) shift=-draggedHeight;
+        else if(newIndex<draggedIndex && i<draggedIndex && i>=newIndex) shift=draggedHeight;
+        el.style.transform = shift ? `translateY(${shift}px)` : '';
+      });
+      currentIndex=newIndex;
+    }
+  }
+
+  function onPointerUp(){
+    if(!dragEl) return;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerUp);
+    dragEl.classList.remove('sortable-dragging');
+    dragEl.style.transform='';
+    items.forEach(el=>{ el.classList.remove('sortable-shift'); el.style.transform=''; });
+    document.body.classList.remove('sortable-active');
+    const from=draggedIndex, to=currentIndex;
+    dragEl=null; pointerId=null; draggedIndex=-1; currentIndex=-1; items=[]; originalRects=[];
+    if(from!==-1 && to!==-1 && from!==to) onMove(from,to);
+  }
+
+  container.addEventListener('pointerdown', onPointerDown);
+}
+
+/* =========================================================
+   POPUP DE CONFIRMACIÓN (p.ej. eliminar receta / categoría)
+========================================================= */
+function openConfirmDialog({title, message, confirmLabel='Eliminar', cancelLabel='Cancelar', onConfirm}){
+  $('#confirm-title').textContent=title;
+  $('#confirm-message').textContent=message;
+  const backdrop=$('#confirm-backdrop');
+  const okBtn=$('#confirm-ok-btn');
+  const cancelBtn=$('#confirm-cancel-btn');
+  okBtn.textContent=confirmLabel;
+  cancelBtn.textContent=cancelLabel;
+
+  function close(){
+    backdrop.classList.remove('open');
+    okBtn.removeEventListener('click', onOk);
+    cancelBtn.removeEventListener('click', onCancel);
+    backdrop.removeEventListener('click', onBackdropClick);
+  }
+  function onOk(){ close(); onConfirm(); }
+  function onCancel(){ close(); }
+  function onBackdropClick(e){ if(e.target===backdrop) onCancel(); }
+
+  okBtn.addEventListener('click', onOk);
+  cancelBtn.addEventListener('click', onCancel);
+  backdrop.addEventListener('click', onBackdropClick);
+  backdrop.classList.add('open');
 }
 
 /* =========================================================
@@ -1853,16 +1992,16 @@ function renderForm(){
   if(f.stepsEditView==='table') autoGrowStepsTextarea($('#f-steps-table-text'));
   $('#f-steps-table-help').addEventListener('click',openStepsTableHelpSheet);
   if(f.id) $('#f-delete').addEventListener('click',()=>{
-    const recipeName=(f.name||'').trim() || 'esta receta';
-    openConfirmSheet({
+    openConfirmDialog({
       title:'Eliminar receta',
-      message:`¿Seguro que quieres eliminar "${recipeName}"? Esta acción no se puede deshacer.`,
+      message:`¿Seguro que quieres eliminar "${f.name||'esta receta'}"? Esta acción no se puede deshacer.`,
       confirmLabel:'Eliminar',
       onConfirm:()=>{
         state.recipes = state.recipes.filter(r=>r.id!==f.id);
         closeRecipeForm();
         renderCategoryChips(); renderRecipeList();
         showToast('Receta eliminada');
+        scheduleSave();
       }
     });
   });
@@ -1941,11 +2080,9 @@ function renderForm(){
     const wrap=$('#f-step-rows'); wrap.innerHTML='';
     f.steps.forEach((s,idx)=>{
       const card=document.createElement('div');
-      card.className='step-card'+(s.type==='heading'?' is-heading':'');
-      card.setAttribute('data-drag-item','');
-      card.dataset.dragIdx=idx;
+      card.className='step-card sortable-item'+(s.type==='heading'?' is-heading':'');
       card.innerHTML=`
-        <button type="button" class="drag-handle" aria-label="Arrastrar para reordenar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></button>
+        <button type="button" class="drag-handle" aria-label="Reordenar paso"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></button>
         <div class="dyn-card">
           <div class="step-type-toggle">
             <button type="button" data-t="step" class="${s.type==='step'?'active':''}">Paso</button>
@@ -1962,17 +2099,24 @@ function renderForm(){
       $$('.step-type-toggle button',card).forEach(b=>b.addEventListener('click',()=>{ s.type=b.dataset.t; renderStepRows(); }));
       wrap.appendChild(card);
     });
-    initDragHandle(wrap, ()=>f.steps, renderStepRows);
+    enableDragReorder(wrap, (from,to)=>{
+      const [moved]=f.steps.splice(from,1);
+      f.steps.splice(to,0,moved);
+      renderStepRows();
+    });
   }
 }
 
+// Selector de categorías para una receta concreta: sólo permite buscar y
+// marcar/desmarcar categorías ya existentes. Crear, editar y eliminar
+// categorías se hace ahora desde el panel "Alimentos → Categorías".
 function openCategoryPickerSheet(){
   const f=formState;
   let query='';
   openSheet({
     title:'Categorías',
     bodyBuilder:(body)=>{
-      const {wrapper:searchWrap} = createSearchBarEl('Buscar o crear categoría…', val=>{ query=val; renderList(); });
+      const {wrapper:searchWrap} = createSearchBarEl('Buscar categoría…', val=>{ query=val; renderList(); });
       searchWrap.style.marginBottom='10px';
       body.appendChild(searchWrap);
       const list=document.createElement('div');
@@ -1983,19 +2127,13 @@ function openCategoryPickerSheet(){
         const nq=normalize(query);
         const matches=state.categories.filter(c=>normalize(c.name).includes(nq)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
 
-        const exact=state.categories.some(c=>normalize(c.name)===nq);
-        if(query.trim() && !exact){
-          const createRow=document.createElement('div');
-          createRow.className='create-cat-row';
-          createRow.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Crear categoría "${query.trim()}"</span>`;
-          createRow.addEventListener('click',()=>{
-            const cat=findOrCreateCategory(query.trim());
-            if(!f.categoryIds.includes(cat.id)) f.categoryIds.push(cat.id);
-            query=''; search.value='';
-            renderList();
-            renderForm(); // refresca chips tras cerrar (se re-render al confirmar también)
-          });
-          list.appendChild(createRow);
+        if(state.categories.length===0){
+          list.innerHTML='<p class="subsection-hint">Aún no hay categorías. Créalas desde el botón de Alimentos → Categorías.</p>';
+          return;
+        }
+        if(matches.length===0){
+          list.innerHTML='<p class="subsection-hint">Sin resultados.</p>';
+          return;
         }
 
         matches.forEach(cat=>{
@@ -2004,39 +2142,11 @@ function openCategoryPickerSheet(){
           const checked=f.categoryIds.includes(cat.id);
           row.innerHTML=`
             <div class="sel-check" style="${checked?'background:var(--accent);border-color:var(--accent);':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:${checked?1:0}; color:var(--accent-ink);"><polyline points="20 6 9 17 4 12"/></svg></div>
-            <span class="name">${cat.name}</span>
-            <span class="actions">
-              <button class="edit-cat" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-              <button class="del-cat" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-            </span>`;
-          row.querySelector('.name').addEventListener('click',()=>{
+            <span class="name">${cat.name}</span>`;
+          row.addEventListener('click',()=>{
             if(f.categoryIds.includes(cat.id)) f.categoryIds=f.categoryIds.filter(x=>x!==cat.id);
             else f.categoryIds.push(cat.id);
             renderList();
-          });
-          row.querySelector('.sel-check').addEventListener('click',()=>row.querySelector('.name').dispatchEvent(new Event('click')));
-          row.querySelector('.edit-cat').addEventListener('click',(ev)=>{
-            ev.stopPropagation();
-            const nameEl=row.querySelector('.name');
-            const input=document.createElement('input');
-            input.type='text'; input.value=cat.name;
-            input.style.cssText='flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--accent);border-radius:8px;padding:6px 8px;font-size:15px;color:var(--text);outline:none;';
-            nameEl.replaceWith(input);
-            input.focus(); input.select();
-            const commit=()=>{
-              const val=input.value.trim();
-              if(val){ cat.name=val; }
-              renderList(); renderForm(); renderCategoryChips(); renderRecipeList();
-            };
-            input.addEventListener('keydown',e=>{ if(e.key==='Enter') commit(); });
-            input.addEventListener('blur',commit,{once:true});
-          });
-          row.querySelector('.del-cat').addEventListener('click',(ev)=>{
-            ev.stopPropagation();
-            state.categories=state.categories.filter(c=>c.id!==cat.id);
-            state.recipes.forEach(r=>{ r.categoryIds=r.categoryIds.filter(id=>id!==cat.id); });
-            f.categoryIds=f.categoryIds.filter(id=>id!==cat.id);
-            renderList(); renderForm(); renderCategoryChips(); renderRecipeList();
           });
           list.appendChild(row);
         });
@@ -2120,27 +2230,30 @@ $('#form-save-btn').addEventListener('click',()=>{
 });
 
 /* =========================================================
-   VISTA DE ALIMENTOS (ingredientes maestros)
+   VISTA DE ALIMENTOS (ingredientes maestros) Y CATEGORÍAS
 ========================================================= */
 let ingViewMode='ingredients'; // 'ingredients' | 'categories'
 
 function openIngredientsView(){
-  setIngViewMode('ingredients');
+  switchIngViewMode('ingredients');
   $('#view-ingredients').classList.add('open');
 }
 $('#ing-back').addEventListener('click',()=>$('#view-ingredients').classList.remove('open'));
 
-function setIngViewMode(mode){
+function switchIngViewMode(mode){
   ingViewMode=mode;
-  $$('#ing-mode-seg .mode-seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+  $$('#ing-mode-seg .shop-seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+  $('#ing-mode-panel-ingredients').style.display = mode==='categories' ? 'none' : '';
+  $('#ing-mode-panel-categories').style.display = mode==='categories' ? '' : 'none';
   $('#ing-view-title').textContent = mode==='categories' ? 'Categorías' : 'Alimentos';
-  $('#ing-ingredients-panel').style.display = mode==='categories' ? 'none' : '';
-  $('#ing-categories-panel').style.display = mode==='categories' ? '' : 'none';
-  if(mode==='categories') renderCategoriesManageView();
-  else renderIngredientsView($('#ing-search').value);
+  if(mode==='categories'){ renderCategoriesManageList(); }
+  else { renderIngredientsView($('#ing-search').value); }
 }
-$$('#ing-mode-seg .mode-seg-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>setIngViewMode(btn.dataset.mode));
+$$('#ing-mode-seg .shop-seg-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(ingViewMode===btn.dataset.mode) return;
+    switchIngViewMode(btn.dataset.mode);
+  });
 });
 
 function renderIngredientsView(q=''){
@@ -2235,92 +2348,84 @@ function deleteIngredient(ing){
   showToast('Alimento eliminado');
 }
 
-/* =========================================================
-   VISTA DE GESTIÓN DE CATEGORÍAS
-   (crear, editar, eliminar y reordenar — el orden se refleja
-   directamente en los chips de la pestaña Recetas)
-========================================================= */
-function categoryUsageCount(catId){
-  return state.recipes.filter(r=>r.categoryIds.includes(catId)).length;
-}
-
-function renderCategoriesManageView(){
+/* ---------- Gestión de categorías (crear, editar, eliminar, reordenar) ---------- */
+function renderCategoriesManageList(){
   const wrap=$('#cat-master-list'); wrap.innerHTML='';
+  const cats=state.categories;
 
-  if(state.categories.length===0){
-    wrap.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83Z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg><h3>Sin categorías</h3><p>Crea categorías para organizar tus recetas y poder filtrarlas.</p></div>`;
+  if(cats.length===0){
+    wrap.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg><h3>Sin categorías</h3><p>Crea categorías para poder clasificar tus recetas.</p></div>`;
     return;
   }
 
-  state.categories.forEach((cat,idx)=>{
-    const uses=categoryUsageCount(cat.id);
+  cats.forEach(cat=>{
+    const uses=state.recipes.filter(r=>r.categoryIds.includes(cat.id)).length;
     const row=document.createElement('div');
-    row.className='cat-manage-row';
-    row.setAttribute('data-drag-item','');
-    row.dataset.dragIdx=idx;
+    row.className='cat-manage-row sortable-item';
     row.innerHTML=`
-      <button type="button" class="drag-handle" aria-label="Arrastrar para reordenar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></button>
-      <span class="n">${cat.name}</span>
-      <span class="cnt">${uses} receta${uses===1?'':'s'}</span>
+      <button type="button" class="drag-handle" aria-label="Reordenar categoría"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></button>
+      <span class="name">${cat.name}</span>
       <span class="actions">
-        <button class="edit-cat-m" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-        <button class="del-cat-m" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <button class="edit-cat" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <button class="del-cat" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
       </span>`;
-    row.querySelector('.edit-cat-m').addEventListener('click',()=>openCategoryEditSheet(cat));
-    row.querySelector('.del-cat-m').addEventListener('click',()=>{
-      openConfirmSheet({
+    row.querySelector('.edit-cat').addEventListener('click',()=>openCategoryEditSheet(cat));
+    row.querySelector('.del-cat').addEventListener('click',()=>{
+      openConfirmDialog({
         title:'Eliminar categoría',
         message: uses>0
-          ? `"${cat.name}" se usa en ${uses} receta${uses===1?'':'s'}. Se quitará de ${uses===1?'esa receta':'esas recetas'}. Esta acción no se puede deshacer.`
-          : `¿Seguro que quieres eliminar la categoría "${cat.name}"? Esta acción no se puede deshacer.`,
+          ? `"${cat.name}" se usa en ${uses} receta${uses===1?'':'s'}. Si la eliminas, se quitará de esas recetas.`
+          : `¿Seguro que quieres eliminar "${cat.name}"?`,
         confirmLabel:'Eliminar',
         onConfirm:()=>{
-          state.categories = state.categories.filter(c=>c.id!==cat.id);
+          state.categories=state.categories.filter(c=>c.id!==cat.id);
           state.recipes.forEach(r=>{ r.categoryIds=r.categoryIds.filter(id=>id!==cat.id); });
-          renderCategoriesManageView();
+          if(activeCategory===cat.id) activeCategory=null;
+          renderCategoriesManageList();
           renderCategoryChips(); renderRecipeList();
           showToast('Categoría eliminada');
+          scheduleSave();
         }
       });
     });
     wrap.appendChild(row);
   });
 
-  initDragHandle(wrap, ()=>state.categories, ()=>{
-    renderCategoriesManageView();
-    renderCategoryChips();
+  enableDragReorder(wrap, (from,to)=>{
+    const [moved]=state.categories.splice(from,1);
+    state.categories.splice(to,0,moved);
+    renderCategoriesManageList();
+    renderCategoryChips(); renderRecipeList();
+    scheduleSave();
   });
 }
 
 function openCategoryEditSheet(cat){
   const isEdit=!!cat;
-  openSheet({
-    title: isEdit ? 'Editar categoría' : 'Nueva categoría',
-    bodyBuilder:(body)=>{
-      body.innerHTML=`<div class="field"><input type="text" id="cat-sheet-name" placeholder="Nombre de la categoría" value="${isEdit?cat.name.replace(/"/g,'&quot;'):''}"></div>`;
-      setTimeout(()=>$('#cat-sheet-name').focus(),250);
-    },
-    footerLabel:'Guardar',
-    onConfirm:()=>{
-      const val=$('#cat-sheet-name').value.trim();
-      if(!val) return;
+  openInputSheet(
+    isEdit ? 'Editar categoría' : 'Nueva categoría',
+    'Nombre de la categoría',
+    (val)=>{
+      const name=val.trim();
+      if(!name) return;
       if(isEdit){
-        cat.name=val;
+        cat.name=name;
         showToast('Categoría actualizada');
       } else {
-        findOrCreateCategory(val);
+        findOrCreateCategory(name);
         showToast('Categoría creada');
       }
-      renderCategoriesManageView();
+      renderCategoriesManageList();
       renderCategoryChips(); renderRecipeList();
-    }
-  });
+    },
+    isEdit ? cat.name : ''
+  );
 }
 
 /* =========================================================
    SHEET GENÉRICO (bottom sheet) + input sheet simple
 ========================================================= */
-function openSheet({title, bodyBuilder, footerLabel, onConfirm, danger=false}){
+function openSheet({title, bodyBuilder, footerLabel, onConfirm}){
   $('#sheet-title').textContent=title;
   const body=$('#sheet-body'); body.innerHTML='';
   bodyBuilder(body);
@@ -2329,8 +2434,6 @@ function openSheet({title, bodyBuilder, footerLabel, onConfirm, danger=false}){
     footer.style.display='block';
     const btn=$('#sheet-confirm');
     btn.textContent=footerLabel;
-    btn.classList.toggle('btn-primary', !danger);
-    btn.classList.toggle('btn-danger', danger);
     btn.onclick=()=>{ onConfirm(); closeSheet(); scheduleSave(); };
   } else {
     footer.style.display='none';
@@ -2341,121 +2444,6 @@ function openSheet({title, bodyBuilder, footerLabel, onConfirm, danger=false}){
 function closeSheet(){ $('#sheet-backdrop').classList.remove('open'); $('#sheet').classList.remove('open'); }
 $('#sheet-backdrop').addEventListener('click',closeSheet);
 $('#sheet-close').addEventListener('click',closeSheet);
-
-/* Sheet de confirmación genérico, para acciones destructivas (eliminar receta,
-   eliminar categoría…). Muestra un mensaje y un botón de confirmación en rojo. */
-function openConfirmSheet({title, message, confirmLabel='Eliminar', onConfirm}){
-  openSheet({
-    title,
-    bodyBuilder:(body)=>{
-      body.innerHTML=`<p class="subsection-hint" style="font-size:14.5px; line-height:1.55; margin:2px 0 4px; color:var(--text-dim);">${message}</p>`;
-    },
-    footerLabel:confirmLabel,
-    danger:true,
-    onConfirm
-  });
-}
-
-/* =========================================================
-   ARRASTRAR Y SOLTAR PARA REORDENAR LISTAS
-   (pasos de receta, categorías…). Usa Pointer Events para funcionar
-   igual con el dedo (iPhone) que con ratón. Cada elemento arrastrable
-   debe tener un hijo ".drag-handle" y el atributo "data-drag-item".
-========================================================= */
-const dragReorder={el:null,container:null,placeholder:null,startY:0,startRect:null,pointerId:null,getArr:null,arr:null,onDone:null,scrollEl:null};
-
-function findDragScrollParent(el){
-  let p=el.parentElement;
-  while(p){
-    const cs=getComputedStyle(p);
-    if(/(auto|scroll)/.test(cs.overflowY)) return p;
-    p=p.parentElement;
-  }
-  return null;
-}
-
-function initDragHandle(container, getArr, onReorderDone){
-  if(container.dataset.dragBound) return;
-  container.dataset.dragBound='1';
-  container.addEventListener('pointerdown',(e)=>{
-    const handle=e.target.closest('.drag-handle');
-    if(!handle || !container.contains(handle)) return;
-    const item=handle.closest('[data-drag-item]');
-    if(!item || item.parentNode!==container) return;
-    e.preventDefault();
-    const rect=item.getBoundingClientRect();
-    dragReorder.el=item;
-    dragReorder.container=container;
-    dragReorder.getArr=getArr;
-    dragReorder.arr=getArr();
-    dragReorder.onDone=onReorderDone;
-    dragReorder.pointerId=e.pointerId;
-    dragReorder.startY=e.clientY;
-    dragReorder.startRect=rect;
-    dragReorder.scrollEl=findDragScrollParent(container);
-
-    const ph=document.createElement('div');
-    ph.className='drag-placeholder';
-    ph.style.height=rect.height+'px';
-    item.parentNode.insertBefore(ph, item);
-    dragReorder.placeholder=ph;
-
-    item.style.position='fixed';
-    item.style.left=rect.left+'px';
-    item.style.top=rect.top+'px';
-    item.style.width=rect.width+'px';
-    item.style.margin='0';
-    item.style.zIndex='999';
-    item.style.pointerEvents='none';
-    item.style.boxShadow='0 14px 30px rgba(0,0,0,.45)';
-    document.body.appendChild(item);
-    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
-  });
-}
-
-document.addEventListener('pointermove',(e)=>{
-  const d=dragReorder;
-  if(!d.el || e.pointerId!==d.pointerId) return;
-  const dy=e.clientY-d.startY;
-  d.el.style.top=(d.startRect.top+dy)+'px';
-  if(d.scrollEl){
-    const r=d.scrollEl.getBoundingClientRect(), margin=44;
-    if(e.clientY<r.top+margin) d.scrollEl.scrollTop-=10;
-    else if(e.clientY>r.bottom-margin) d.scrollEl.scrollTop+=10;
-  }
-  const dragMid=d.startRect.top+dy+d.startRect.height/2;
-  const siblings=Array.from(d.container.children).filter(c=>c!==d.el && c!==d.placeholder);
-  for(const sib of siblings){
-    const r=sib.getBoundingClientRect();
-    const mid=r.top+r.height/2;
-    const kids=Array.from(d.container.children);
-    const phIdx=kids.indexOf(d.placeholder), sibIdx=kids.indexOf(sib);
-    if(dragMid<mid && phIdx>sibIdx){ d.container.insertBefore(d.placeholder, sib); break; }
-    if(dragMid>mid && phIdx<sibIdx){ d.container.insertBefore(d.placeholder, sib.nextSibling); break; }
-  }
-});
-
-function endDragReorder(e){
-  const d=dragReorder;
-  if(!d.el || (e.pointerId!==undefined && e.pointerId!==d.pointerId)) return;
-  const container=d.container, el=d.el, ph=d.placeholder, arr=d.arr, onDone=d.onDone;
-  container.insertBefore(el, ph);
-  container.removeChild(ph);
-  el.style.position=''; el.style.left=''; el.style.top=''; el.style.width='';
-  el.style.margin=''; el.style.zIndex=''; el.style.pointerEvents=''; el.style.boxShadow='';
-  const oldIdx=Number(el.dataset.dragIdx);
-  const newIdx=Array.from(container.children).indexOf(el);
-  dragReorder.el=null; dragReorder.container=null; dragReorder.placeholder=null;
-  dragReorder.getArr=null; dragReorder.arr=null; dragReorder.onDone=null; dragReorder.scrollEl=null;
-  if(arr && newIdx!==-1 && newIdx!==oldIdx){
-    const [moved]=arr.splice(oldIdx,1);
-    arr.splice(newIdx,0,moved);
-  }
-  scheduleSave();
-  if(onDone) onDone();
-}
-document.addEventListener('pointerup', endDragReorder);
-document.addEventListener('pointercancel', endDragReorder);
 
 function openInputSheet(title, placeholder, onSubmit, initial=''){
   openSheet({
