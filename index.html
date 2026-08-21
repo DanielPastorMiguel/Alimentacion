@@ -834,7 +834,7 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
     <section class="panel active" id="panel-recetas">
       <div class="search-bar" id="recipe-search-bar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="recipe-search" type="text" placeholder="Buscar por nombre o ingrediente…" autocomplete="off">
+        <input id="recipe-search" type="text" placeholder="" autocomplete="off">
         <button type="button" class="clear-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="chip-row" id="category-chip-row"></div>
@@ -921,7 +921,7 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
       <div id="ing-mode-panel-ingredients">
         <div class="search-bar" id="ing-search-bar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input id="ing-search" type="text" placeholder="Buscar alimento…" autocomplete="off">
+          <input id="ing-search" type="text" placeholder="" autocomplete="off">
           <button type="button" class="clear-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div id="ing-master-list"></div>
@@ -2059,7 +2059,7 @@ function renderForm(){
       card.innerHTML=`
         <div class="dyn-card-top">
           <div class="autocomplete-box">
-            <input type="text" class="ing-name-input" placeholder="Buscar o escribir alimento…" value="${(row.name||'').replace(/"/g,'&quot;')}" autocomplete="off">
+            <input type="text" class="ing-name-input" placeholder="" value="${(row.name||'').replace(/"/g,'&quot;')}" autocomplete="off">
           </div>
           <button type="button" class="remove-row-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
@@ -2091,7 +2091,7 @@ function renderForm(){
       card.innerHTML=`
         <div class="dyn-card-top">
           <div class="autocomplete-box">
-            <input type="text" class="ing-name-input" placeholder="Buscar especia…" value="${(row.name||'').replace(/"/g,'&quot;')}" autocomplete="off">
+            <input type="text" class="ing-name-input" placeholder="" value="${(row.name||'').replace(/"/g,'&quot;')}" autocomplete="off">
           </div>
           <button type="button" class="remove-row-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
@@ -2151,7 +2151,7 @@ function openCategoryPickerSheet(){
   openSheet({
     title:'Categorías',
     bodyBuilder:(body)=>{
-      const {wrapper:searchWrap, input:searchInput} = createSearchBarEl('Buscar categoría…', val=>{ query=val; renderList(); });
+      const {wrapper:searchWrap, input:searchInput} = createSearchBarEl('', val=>{ query=val; renderList(); });
       searchWrap.style.marginBottom='10px';
       body.appendChild(searchWrap);
       const list=document.createElement('div');
@@ -2700,7 +2700,7 @@ function openAddPlannerEntrySheet(offset, dayIdx){
               list.appendChild(row);
             });
           }
-          const {wrapper:searchWrap} = createSearchBarEl('Buscar receta…', val=>renderPickList(val));
+          const {wrapper:searchWrap} = createSearchBarEl('', val=>renderPickList(val));
           content.appendChild(searchWrap);
           content.appendChild(list);
           renderPickList();
