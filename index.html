@@ -613,6 +613,10 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
 .add-entry-btn svg{width:15px; height:15px;}
 
 /* ---------- SHOPPING LIST ---------- */
+#panel-compra.panel{display:flex; flex-direction:column;}
+#shop-list{flex:1; display:flex; flex-direction:column;}
+#shop-list.shop-list-empty{align-items:center; justify-content:center;}
+#shop-list.shop-list-empty .empty-state{padding:0;}
 .shop-toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
 .shop-toolbar .count-label{font-size:13.5px; color:var(--text-mute); font-weight:600;}
 .shop-toolbar .clear-all{font-size:13px; font-weight:700; color:var(--paprika);}
@@ -923,7 +927,6 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
         <div id="ing-master-list"></div>
       </div>
       <div id="ing-mode-panel-categories" style="display:none">
-        <p class="subsection-hint">Mantén pulsado <strong>⠿</strong> y arrastra para cambiar el orden en que aparecen en Recetas.</p>
         <div id="cat-master-list"></div>
       </div>
     </div>
@@ -1119,10 +1122,35 @@ function createSearchBarEl(placeholder, onInput){
 // container: el elemento cuyos hijos directos son los "sortable-item".
 // onMove(fromIndex, toIndex): se llama al soltar, si el índice cambió.
 function enableDragReorder(container, onMove){
-  let dragEl=null, pointerId=null, startClientY=0, offsetY=0;
+  // Este contenedor persiste entre renders (add/quitar paso, editar categoría, etc.),
+  // así que si ya tiene el listener de arrastre montado, NO lo volvemos a añadir
+  // (eso apilaba varios manejadores obsoletos y provocaba reordenamientos erráticos).
+  // Sólo actualizamos qué función "onMove" debe ejecutarse al soltar.
+  container._sortableOnMove = onMove;
+  if(container._sortableInitialized) return;
+  container._sortableInitialized = true;
+
+  let dragEl=null, pointerId=null, startClientY=0;
   let originalRects=[], items=[], draggedIndex=-1, currentIndex=-1;
 
   function getItems(){ return Array.from(container.children).filter(el=>el.classList.contains('sortable-item')); }
+
+  // Cuenta cuántos elementos (aparte del arrastrado) tienen su centro original
+  // por encima del centro actual del elemento arrastrado. Ese conteo es
+  // directamente el índice de inserción correcto una vez quitado el elemento
+  // arrastrado del array — es un cálculo independiente en cada evento (no se
+  // va acumulando sobre sí mismo), así que no se "queda pegado" en el índice
+  // de partida.
+  function computeTargetIndex(draggedCenter){
+    let count=0;
+    for(let i=0;i<items.length;i++){
+      if(i===draggedIndex) continue;
+      const rect=originalRects[i];
+      const center=rect.top+rect.height/2;
+      if(draggedCenter>center) count++;
+    }
+    return count;
+  }
 
   function onPointerDown(e){
     const handle=e.target.closest('.drag-handle');
@@ -1138,8 +1166,7 @@ function enableDragReorder(container, onMove){
     dragEl=item;
     pointerId=e.pointerId;
     startClientY=e.clientY;
-    offsetY=0;
-    try{ handle.setPointerCapture(pointerId); }catch(err){}
+    try{ dragEl.setPointerCapture(pointerId); }catch(err){}
     dragEl.classList.add('sortable-dragging');
     document.body.classList.add('sortable-active');
     document.addEventListener('pointermove', onPointerMove, {passive:false});
@@ -1155,15 +1182,7 @@ function enableDragReorder(container, onMove){
 
     const draggedRect=originalRects[draggedIndex];
     const draggedCenter=draggedRect.top+draggedRect.height/2+dy;
-
-    let newIndex=draggedIndex;
-    for(let i=0;i<items.length;i++){
-      if(i===draggedIndex) continue;
-      const rect=originalRects[i];
-      const center=rect.top+rect.height/2;
-      if(i>newIndex && draggedCenter>center) newIndex=i;
-      else if(i<newIndex && draggedCenter<center) newIndex=i;
-    }
+    const newIndex=computeTargetIndex(draggedCenter);
 
     if(newIndex!==currentIndex){
       const draggedHeight=draggedRect.height;
@@ -1190,7 +1209,12 @@ function enableDragReorder(container, onMove){
     document.body.classList.remove('sortable-active');
     const from=draggedIndex, to=currentIndex;
     dragEl=null; pointerId=null; draggedIndex=-1; currentIndex=-1; items=[]; originalRects=[];
-    if(from!==-1 && to!==-1 && from!==to) onMove(from,to);
+    // Usamos siempre el callback más reciente guardado en el contenedor,
+    // por si "render..." volvió a llamar a enableDragReorder entretanto.
+    if(from!==-1 && to!==-1 && from!==to){
+      const cb=container._sortableOnMove;
+      if(cb) cb(from,to);
+    }
   }
 
   container.addEventListener('pointerdown', onPointerDown);
@@ -1408,7 +1432,9 @@ function switchTab(tab){
   currentTab=tab;
   $$('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   $$('.panel').forEach(p=>p.classList.remove('active'));
-  $('#panel-'+tab).classList.add('active');
+  const panel=$('#panel-'+tab);
+  panel.classList.add('active');
+  panel.scrollTop=0;
   const titles={recetas:'Recetas', planificador:'Planificador', compra:'Lista de compra'};
   $('#header-title').textContent=titles[tab];
   renderHeaderActions();
@@ -1486,6 +1512,7 @@ function renderRecipeList(){
   const list=$('#recipe-list'); list.innerHTML='';
   let items=state.recipes.filter(r=>recipeMatches(r,searchQuery));
   if(activeCategory) items=items.filter(r=>r.categoryIds.includes(activeCategory));
+  items=items.slice().sort((a,b)=>a.name.localeCompare(b.name,'es'));
 
   if(items.length===0){
     list.innerHTML='';
@@ -1505,8 +1532,8 @@ function renderRecipeList(){
       <div class="recipe-card-body">
         <p class="recipe-card-title">${r.name}</p>
         <div class="recipe-card-meta">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14.5"/></svg>${r.prepMin+r.cookMin} min</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2a5 5 0 0 1 5 5v1H2V7a5 5 0 0 1 5-5"/><path d="M2 8h20l-1.5 12.5A2 2 0 0 1 18.5 22h-13a2 2 0 0 1-2-1.5L2 8Z"/></svg>${r.servings} pers.</span>
+          ${r.prepMin?`<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14.5"/></svg>${r.prepMin} min</span>`:''}
+          ${r.cookMin?`<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c0 3-3 4-3 7a3 3 0 0 0 6 0c0-1-.5-1.5-1-2 0 1.5-1 2-1 2 .5-2-1.5-3-1-7Z"/><path d="M6 14a6 6 0 1 0 12 0c0-1-.2-1.8-.5-2.5"/></svg>${r.cookMin} min</span>`:''}
         </div>
         <div class="tag-row">${recipeCategoryNames(r).map(c=>`<span class="tag">${c}</span>`).join('')}</div>
       </div>`;
@@ -1605,9 +1632,13 @@ function itemToSpiceRow(item){
 }
 function formatRecipeItemAmount(item, factor=1){
   if(item._shape==='ingredient'){
-    return `${fmtQty((Number(item.qty)||0)*factor)} ${item.unit||''}`.trim();
+    if(item.qty===''||item.qty==null) return (item.unit||'').trim();
+    const scaled=fmtQty((Number(item.qty)||0)*factor);
+    return `${scaled} ${item.unit||''}`.trim();
   }
-  return `${item.amount||''} cuch.`;
+  const amt=parseAmountNumber(item.amount);
+  if(amt==='') return '';
+  return `${fmtQty(amt*factor)} cuch.`.trim();
 }
 
 /* ---------- Vista de pasos: Secuencial / Tabla ---------- */
@@ -1865,13 +1896,14 @@ function openRecipeForm(recipeId){
     $('#form-title').textContent='Editar receta';
   } else {
     formState={
-      id:null, name:'', photo:'', prepMin:15, cookMin:15, servings:4, categoryIds:[],
+      id:null, name:'', photo:'', prepMin:15, cookMin:15, servings:1, categoryIds:[],
       ingredients:[{name:'',qty:'',unit:''}], spices:[], steps:[{type:'step', text:''}],
       stepsTableText:'', stepsEditView:'seq'
     };
     $('#form-title').textContent='Nueva receta';
   }
   renderForm();
+  $('#form-body').scrollTop=0;
   $('#view-form').classList.add('open');
 }
 function closeRecipeForm(){ $('#view-form').classList.remove('open'); }
@@ -2039,9 +2071,12 @@ function renderForm(){
       const nameInput=card.querySelector('.ing-name-input');
       nameInput.addEventListener('input',e=>{
         row.name=e.target.value;
-        showIngredientSuggestions(nameInput, card.querySelector('.autocomplete-box'), val=>{ row.name=val; nameInput.value=val; }, i=>!i.isSpice);
+        showIngredientSuggestions(nameInput, card.querySelector('.autocomplete-box'), val=>{ row.name=val; nameInput.value=val; }, i=>!i.isSpice, true, 'alimento');
       });
-      card.querySelector('.qty-input').addEventListener('input',e=>row.qty=Number(e.target.value)||0);
+      card.querySelector('.qty-input').addEventListener('input',e=>{
+        const v=e.target.value;
+        row.qty = v==='' ? '' : Number(v);
+      });
       card.querySelector('.unit-input').addEventListener('input',e=>row.unit=e.target.value);
       card.querySelector('.remove-row-btn').addEventListener('click',()=>{ f.ingredients.splice(idx,1); renderIngredientRows(); });
       wrap.appendChild(card);
@@ -2068,7 +2103,7 @@ function renderForm(){
       const nameInput=card.querySelector('.ing-name-input');
       nameInput.addEventListener('input',e=>{
         row.name=e.target.value;
-        showIngredientSuggestions(nameInput, card.querySelector('.autocomplete-box'), val=>{ row.name=val; nameInput.value=val; }, i=>i.isSpice, true);
+        showIngredientSuggestions(nameInput, card.querySelector('.autocomplete-box'), val=>{ row.name=val; nameInput.value=val; }, i=>i.isSpice, true, 'especia');
       });
       card.querySelector('.amount-input').addEventListener('input',e=>row.amount=e.target.value);
       card.querySelector('.remove-row-btn').addEventListener('click',()=>{ f.spices.splice(idx,1); renderSpiceRows(); });
@@ -2089,7 +2124,7 @@ function renderForm(){
             <button type="button" data-t="heading" class="${s.type==='heading'?'active':''}">Título</button>
           </div>
           <div class="dyn-card-top" style="align-items:flex-start;">
-            <textarea rows="${s.type==='heading'?1:2}" placeholder="${s.type==='heading'?'Ej. Sofreír':`Describe el paso`}">${s.text}</textarea>
+            <textarea rows="${s.type==='heading'?1:2}" placeholder="${s.type==='heading'?'Preparación/Cocinado/Finalización':`Describe el paso`}">${s.text}</textarea>
             <button type="button" class="remove-row-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </div>
         </div>
@@ -2116,7 +2151,7 @@ function openCategoryPickerSheet(){
   openSheet({
     title:'Categorías',
     bodyBuilder:(body)=>{
-      const {wrapper:searchWrap} = createSearchBarEl('Buscar categoría…', val=>{ query=val; renderList(); });
+      const {wrapper:searchWrap, input:searchInput} = createSearchBarEl('Buscar categoría…', val=>{ query=val; renderList(); });
       searchWrap.style.marginBottom='10px';
       body.appendChild(searchWrap);
       const list=document.createElement('div');
@@ -2126,14 +2161,33 @@ function openCategoryPickerSheet(){
         list.innerHTML='';
         const nq=normalize(query);
         const matches=state.categories.filter(c=>normalize(c.name).includes(nq)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+        const exact=state.categories.some(c=>normalize(c.name)===nq);
 
-        if(state.categories.length===0){
-          list.innerHTML='<p class="subsection-hint">Aún no hay categorías. Créalas desde el botón de Alimentos → Categorías.</p>';
+        if(query.trim() && !exact){
+          const createRow=document.createElement('div');
+          createRow.className='create-cat-row';
+          createRow.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Crear categoría "${query.trim()}"</span>`;
+          createRow.addEventListener('click',()=>{
+            const cat=findOrCreateCategory(query.trim());
+            if(!f.categoryIds.includes(cat.id)) f.categoryIds.push(cat.id);
+            query=''; searchInput.value='';
+            renderList();
+          });
+          list.appendChild(createRow);
+        }
+
+        if(state.categories.length===0 && !query.trim()){
+          const empty=document.createElement('p');
+          empty.className='subsection-hint';
+          empty.textContent='Aún no hay categorías. Escribe un nombre arriba para crear la primera.';
+          list.appendChild(empty);
           return;
         }
-        if(matches.length===0){
-          list.innerHTML='<p class="subsection-hint">Sin resultados.</p>';
-          return;
+        if(matches.length===0 && query.trim()){
+          const empty=document.createElement('p');
+          empty.className='subsection-hint';
+          empty.textContent='Sin resultados.';
+          list.appendChild(empty);
         }
 
         matches.forEach(cat=>{
@@ -2158,7 +2212,7 @@ function openCategoryPickerSheet(){
   });
 }
 
-function showIngredientSuggestions(inputEl, boxEl, onPick, filterFn=null, autoSpice=false){
+function showIngredientSuggestions(inputEl, boxEl, onPick, filterFn=null, allowCreate=false, createLabel='alimento'){
   const existing=boxEl.querySelector('.ac-suggestions'); if(existing) existing.remove();
   const q=normalize(inputEl.value);
   if(!q) return;
@@ -2173,12 +2227,12 @@ function showIngredientSuggestions(inputEl, boxEl, onPick, filterFn=null, autoSp
     d.addEventListener('mousedown',ev=>{ ev.preventDefault(); onPick(m.name); box.remove(); });
     box.appendChild(d);
   });
-  if(autoSpice){
+  if(allowCreate){
     const exact=state.ingredients.some(i=>normalize(i.name)===q);
     if(!exact){
       const d=document.createElement('div');
       d.style.color='var(--accent)'; d.style.fontWeight='700';
-      d.textContent=`Crear especia "${inputEl.value.trim()}"`;
+      d.textContent=`Crear ${createLabel} "${inputEl.value.trim()}"`;
       d.addEventListener('mousedown',ev=>{ ev.preventDefault(); onPick(inputEl.value.trim()); box.remove(); });
       box.appendChild(d);
     }
@@ -2195,13 +2249,14 @@ $('#form-save-btn').addEventListener('click',()=>{
     .filter(i=>i.name && i.name.trim())
     .map(i=>{
       const master=findOrCreateIngredient(i.name);
-      return {ingredientId:master.id, name:master.name, qty:Number(i.qty)||0, unit:(i.unit||'').trim()};
+      const num=(i.qty===''||i.qty==null) ? '' : Number(i.qty);
+      return {ingredientId:master.id, name:master.name, qty:(num===''||isNaN(num))?'':num, unit:(i.unit||'').trim()};
     });
   const cleanSpices = f.spices
-    .filter(s=>s.name && s.name.trim() && s.amount && s.amount.trim())
+    .filter(s=>s.name && s.name.trim())
     .map(s=>{
       const master=findOrCreateSpiceIngredient(s.name);
-      return {ingredientId:master.id, name:master.name, amount:s.amount.trim()};
+      return {ingredientId:master.id, name:master.name, amount:(s.amount||'').trim()};
     });
   const cleanSteps = f.steps
     .map(s=>({type:s.type, text:s.text.trim()}))
@@ -2480,8 +2535,11 @@ function openQtyEditSheet(title, currentQty, unit, onSubmit){
 function openAddToCartSheet(recipeId, servings){
   const r=state.recipes.find(x=>x.id===recipeId);
   const scaled=scaledIngredients(r,servings);
-  const selection={}; // ingredientId -> {checked, qty, unit, name}
-  scaled.forEach(i=>{ selection[i.ingredientId]={checked:true, qty:Math.round(i.scaledQty*100)/100, unit:i.unit, name:i.name}; });
+  const selection={}; // ingredientId -> {checked, qty, unit, name, defaultQty}
+  scaled.forEach(i=>{
+    const defQty=Math.round(i.scaledQty*100)/100;
+    selection[i.ingredientId]={checked:true, qty:defQty, defaultQty:defQty, unit:i.unit, name:i.name};
+  });
 
   openSheet({
     title:'Añadir a la cesta',
@@ -2506,9 +2564,20 @@ function openAddToCartSheet(recipeId, servings){
     },
     footerLabel:'Añadir a la cesta',
     onConfirm:()=>{
-      const items=Object.values(selection).filter(s=>s.checked && s.qty>0);
-      if(items.length===0){ showToast('No has seleccionado ingredientes'); return; }
-      addManualShoppingItems(items.map(i=>({name:i.name, qty:i.qty, unit:i.unit, recipeName:r.name})));
+      const all=Object.entries(selection);
+      const checked=all.filter(([,s])=>s.checked && s.qty>0);
+      if(checked.length===0){ showToast('No has seleccionado ingredientes'); return; }
+      // Se crea como una entrada de receta más (igual que al planificarla), para que
+      // en la lista de la compra aparezca agrupada bajo esta receta y no suelta en "Otros".
+      const excludedIds = all.filter(([,s])=>!(s.checked && s.qty>0)).map(([id])=>id);
+      const entry={id:uid('shopent'), recipeId, servings, excludedIds};
+      state.shopping.recipeEntries.push(entry);
+      checked.forEach(([ingredientId,s])=>{
+        if(Math.abs(s.qty - s.defaultQty) > 1e-9){
+          state.shopping.qtyOverrides[entry.id+'|'+ingredientId]=s.qty;
+        }
+      });
+      if(currentTab==='compra') renderShopping();
       showToast('Añadido a la lista de la compra');
     }
   });
@@ -2714,7 +2783,7 @@ let shopMode='agregado'; // 'recetas' | 'agregado'
 function addRecipeToShoppingList(recipeId){
   const r=state.recipes.find(x=>x.id===recipeId);
   if(!r) return;
-  state.shopping.recipeEntries.push({id:uid('shopent'), recipeId, servings:r.servings});
+  state.shopping.recipeEntries.push({id:uid('shopent'), recipeId, servings:r.servings, excludedIds:[]});
   if(currentTab==='compra') renderShopping();
 }
 
@@ -2796,6 +2865,7 @@ function computeAggregatedGroups(){
     if(!r) return;
     scaledIngredients(r, entry.servings).forEach(i=>{
       if(state.shopping.excludedIngredientIds.includes(i.ingredientId)) return;
+      if((entry.excludedIds||[]).includes(i.ingredientId)) return;
       const key='ing:'+i.ingredientId+'|'+normalize(i.unit);
       if(!map[key]) map[key]={
         key, ingredientId:i.ingredientId, name:i.name, unit:i.unit, qty:0, boughtQty:0, breakdown:[], entries:[], isManual:false
@@ -2832,8 +2902,9 @@ function renderShopping(){
 
   const wrap=$('#shop-list'); wrap.innerHTML='';
   const isEmpty = state.shopping.recipeEntries.length===0 && state.shopping.manualItems.length===0;
+  wrap.classList.toggle('shop-list-empty', isEmpty);
   if(isEmpty){
-    wrap.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="21" r="1.2"/><circle cx="18" cy="21" r="1.2"/><path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.3a2 2 0 0 0 2-1.6L21 7H6"/></svg><h3>Tu cesta está vacía</h3><p>Añade recetas desde el planificador o desde cualquier receta para empezar tu lista de la compra.</p></div>`;
+    wrap.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="21" r="1.2"/><circle cx="18" cy="21" r="1.2"/><path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h8.3a2 2 0 0 0 2-1.6L21 7H6"/></svg><h3>Tu cesta está vacía</h3></div>`;
     return;
   }
 
@@ -2921,7 +2992,7 @@ function renderShoppingByRecipe(wrap){
   state.shopping.recipeEntries.forEach(entry=>{
     const r=state.recipes.find(x=>x.id===entry.recipeId);
     if(!r) return;
-    const ing=scaledIngredients(r, entry.servings).filter(i=>!state.shopping.excludedIngredientIds.includes(i.ingredientId));
+    const ing=scaledIngredients(r, entry.servings).filter(i=>!state.shopping.excludedIngredientIds.includes(i.ingredientId) && !(entry.excludedIds||[]).includes(i.ingredientId));
     const swipeWrap=document.createElement('div');
     swipeWrap.className='swipe-wrap recipe-wrap';
     const card=document.createElement('div');
@@ -3163,7 +3234,7 @@ async function loadState(){
       state.recipes = Array.isArray(saved.recipes)?saved.recipes:[];
       state.planner = (saved.planner && typeof saved.planner==='object')?saved.planner:{};
       state.shopping = (saved.shopping && typeof saved.shopping==='object')?saved.shopping:state.shopping;
-      state.shopping.recipeEntries = state.shopping.recipeEntries||[];
+      state.shopping.recipeEntries = (state.shopping.recipeEntries||[]).map(e=>({...e, excludedIds:Array.isArray(e.excludedIds)?e.excludedIds:[]}));
       state.shopping.manualItems = state.shopping.manualItems||[];
       state.shopping.boughtIngredientIds = state.shopping.boughtIngredientIds||[];
       state.shopping.boughtEntryKeys = state.shopping.boughtEntryKeys||[];
