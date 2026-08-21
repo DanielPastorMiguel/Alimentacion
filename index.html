@@ -70,7 +70,7 @@ body{
 @media (orientation:landscape){
   #app{ max-width:100%; }
 }
-button{font-family:inherit; -webkit-appearance:none; appearance:none; border:none; background:none; color:inherit; cursor:pointer;}
+button{font-family:inherit; -webkit-appearance:none; appearance:none; border:none; background:none; color:inherit; cursor:pointer; outline:none;}
 input,textarea{font-family:inherit; color:inherit;}
 ::-webkit-scrollbar{display:none;}
 
@@ -576,14 +576,46 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
 
 /* ---------- PLANNER ---------- */
 .week-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
-.week-nav button{
+.week-nav button:not(.week-label){
   width:36px; height:36px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border);
-  display:flex; align-items:center; justify-content:center;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.week-nav button svg{width:16px; height:16px;}
-.week-label{text-align:center;}
-.week-label .range{font-size:15px; font-weight:700;}
+.week-nav button:not(.week-label) svg{width:16px; height:16px;}
+.week-nav{position:sticky; top:0; z-index:5; padding-top:14px; margin-top:-14px; padding-bottom:14px;
+  background:var(--bg);}
+.week-nav::after{
+  content:''; position:absolute; left:0; right:0; top:100%; height:14px;
+  background:linear-gradient(var(--bg), transparent); pointer-events:none;
+}
+.week-label{text-align:center; border-radius:12px; padding:4px 10px; transition:background .15s ease;
+  display:flex; flex-direction:column; align-items:center; flex:1; min-width:0; -webkit-tap-highlight-color:transparent;}
+.week-label:active{background:var(--surface-2);}
+.week-label .range-row{display:flex; align-items:center; justify-content:center; gap:5px; width:100%; min-width:0;}
+.week-label .range{font-size:15px; font-weight:700; white-space:normal; line-height:1.25;}
+.week-label .range-row svg{width:12px; height:12px; color:var(--text-mute); flex-shrink:0;}
 .week-label .tag{margin-top:3px; display:inline-block;}
+
+/* ---------- CALENDAR PICKER ---------- */
+.cal-picker{padding-bottom:4px;}
+.cal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+.cal-head .cal-month{font-family:var(--font-display); font-size:16px; font-weight:700; text-transform:capitalize;}
+.cal-nav{
+  width:34px; height:34px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.cal-nav svg{width:15px; height:15px;}
+.cal-weekdays{display:grid; grid-template-columns:repeat(7,1fr); text-align:center; margin-bottom:4px;}
+.cal-weekdays span{font-size:11.5px; font-weight:700; color:var(--text-mute);}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); row-gap:4px;}
+.cal-day{
+  aspect-ratio:1; display:flex; align-items:center; justify-content:center; margin:0 auto; width:36px; max-width:100%;
+  border-radius:50%; font-size:14px; font-weight:600; color:var(--text);
+}
+.cal-day.out{color:var(--text-mute); opacity:.45;}
+.cal-day.cal-sel{background:var(--surface-3);}
+.cal-day.cal-today{color:var(--accent); font-weight:800;}
+.cal-day.cal-sel.cal-today{background:var(--accent); color:var(--accent-ink);}
+.cal-today-btn{margin-top:16px;}
 .day-block{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-l);
   padding:14px 14px 10px; margin-bottom:12px;
@@ -845,7 +877,13 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
     <section class="panel" id="panel-planificador">
       <div class="week-nav">
         <button id="week-prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-        <div class="week-label"><div class="range" id="week-range"></div><div class="tag" id="week-tag" style="display:none">Esta semana</div></div>
+        <button type="button" class="week-label" id="week-label-btn">
+          <div class="range-row">
+            <div class="range" id="week-range"></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2.5" x2="8" y2="7"/><line x1="16" y1="2.5" x2="16" y2="7"/></svg>
+          </div>
+          <div class="tag" id="week-tag" style="display:none">Esta semana</div>
+        </button>
         <button id="week-next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
       </div>
       <div id="week-days"></div>
@@ -1438,7 +1476,7 @@ function switchTab(tab){
   const titles={recetas:'Recetas', planificador:'Planificador', compra:'Lista de compra'};
   $('#header-title').textContent=titles[tab];
   renderHeaderActions();
-  if(tab==='planificador') renderPlanner();
+  if(tab==='planificador'){ weekOffset=0; renderPlanner(); centerPlannerOnToday(); }
   if(tab==='compra') renderShopping();
 }
 $$('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
@@ -2665,6 +2703,84 @@ function renderPlanner(){
 }
 $('#week-prev').addEventListener('click',()=>{ weekOffset--; renderPlanner(); });
 $('#week-next').addEventListener('click',()=>{ weekOffset++; renderPlanner(); });
+
+/* Centra el scroll del planificador en el día actual (si la semana visible
+   es la semana en curso), dejando la cabecera de navegación visible. */
+function centerPlannerOnToday(){
+  const panel=$('#panel-planificador');
+  requestAnimationFrame(()=>{
+    if(weekOffset!==0){ panel.scrollTop=0; return; }
+    const todayBlock=$('#week-days .day-block.today');
+    if(!todayBlock){ panel.scrollTop=0; return; }
+    const nav=$('#panel-planificador .week-nav');
+    const navHeight=nav?nav.getBoundingClientRect().height:0;
+    panel.scrollTop=Math.max(todayBlock.offsetTop-navHeight-10, 0);
+  });
+}
+
+/* Sheet con calendario para elegir semana desde la pestaña Planificador */
+function openWeekCalendarSheet(){
+  const viewMonday=addDays(mondayOf(new Date()), weekOffset*7);
+  const viewSunday=addDays(viewMonday,6);
+  const todayKey=dateKey(new Date());
+  let calMonth=new Date(viewMonday.getFullYear(), viewMonday.getMonth(), 1);
+
+  openSheet({
+    title:'Elegir semana',
+    bodyBuilder:(body)=>{
+      const wrap=document.createElement('div');
+      wrap.className='cal-picker';
+      body.appendChild(wrap);
+
+      function renderCal(){
+        const y=calMonth.getFullYear(), m=calMonth.getMonth();
+        const startGrid=mondayOf(new Date(y,m,1));
+        const monthLabel=`${MONTHS[m]} ${y}`;
+        let cellsHtml='';
+        for(let i=0;i<42;i++){
+          const d=addDays(startGrid,i);
+          const inMonth=d.getMonth()===m;
+          const key=dateKey(d);
+          const isToday=key===todayKey;
+          const inSelWeek= d>=viewMonday && d<=viewSunday;
+          cellsHtml+=`<button type="button" class="cal-day${inMonth?'':' out'}${isToday?' cal-today':''}${inSelWeek?' cal-sel':''}" data-key="${key}">${d.getDate()}</button>`;
+        }
+        wrap.innerHTML=`
+          <div class="cal-head">
+            <button type="button" class="cal-nav" id="cal-prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <div class="cal-month">${monthLabel}</div>
+            <button type="button" class="cal-nav" id="cal-next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
+          <div class="cal-weekdays">${DAY_SHORT.map(d=>`<span>${d[0]}</span>`).join('')}</div>
+          <div class="cal-grid">${cellsHtml}</div>
+          <button type="button" class="btn btn-secondary btn-full cal-today-btn" id="cal-goto-today">Ir a la semana actual</button>
+        `;
+        wrap.querySelector('#cal-prev').addEventListener('click',()=>{ calMonth=new Date(y,m-1,1); renderCal(); });
+        wrap.querySelector('#cal-next').addEventListener('click',()=>{ calMonth=new Date(y,m+1,1); renderCal(); });
+        wrap.querySelector('#cal-goto-today').addEventListener('click',()=>{
+          weekOffset=0;
+          closeSheet();
+          renderPlanner();
+          centerPlannerOnToday();
+        });
+        $$('.cal-day',wrap).forEach(btn=>{
+          btn.addEventListener('click',()=>{
+            const picked=new Date(btn.dataset.key+'T00:00:00');
+            const pickedMonday=mondayOf(picked);
+            const baseMonday=mondayOf(new Date());
+            const diffWeeks=Math.round((pickedMonday-baseMonday)/(7*86400000));
+            weekOffset=diffWeeks;
+            closeSheet();
+            renderPlanner();
+            centerPlannerOnToday();
+          });
+        });
+      }
+      renderCal();
+    }
+  });
+}
+$('#week-label-btn').addEventListener('click', openWeekCalendarSheet);
 
 function openAddPlannerEntrySheet(offset, dayIdx){
   let mode='recipe';
