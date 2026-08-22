@@ -45,13 +45,16 @@
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
-html,body{height:100%;}
+html,body{height:100%; overscroll-behavior:none;}
 body{
   margin:0;
   background:var(--bg);
   color:var(--text);
   font-family:var(--font-ui);
   overflow:hidden;
+  overscroll-behavior:none;
+  position:fixed;
+  width:100%;
   -webkit-font-smoothing:antialiased;
 }
 #app{
@@ -114,6 +117,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .panel{
   position:absolute; inset:0;
   overflow-y:auto; overflow-x:hidden;
+  overscroll-behavior-y:contain;
   padding:0 20px calc(72px + var(--safe-bottom));
   opacity:0; pointer-events:none; transform:translateY(6px);
   transition:opacity .2s ease, transform .2s ease;
@@ -125,9 +129,7 @@ input,textarea{font-family:inherit; color:inherit;}
   position:absolute; left:0; right:0; bottom:0;
   display:flex;
   padding:4px calc(var(--safe-right) + 10px) calc(3px + var(--safe-bottom)) calc(var(--safe-left) + 10px);
-  background:rgba(20,23,15,0.86);
-  backdrop-filter:blur(20px) saturate(160%);
-  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  background:var(--surface);
   border-top:1px solid var(--border);
   z-index:20;
   touch-action:none;
@@ -252,7 +254,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .view-header .back-btn svg{width:16px; height:16px;}
 .view-header h2{font-family:var(--font-display); font-size:19px; font-weight:600; margin:0; flex:1; min-width:0;}
 .view-header .header-actions{margin-left:auto;}
-.view-body{flex:1; overflow-y:auto; overflow-x:hidden; padding:0 20px 40px; max-width:100%;}
+.view-body{flex:1; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; padding:0 20px 40px; max-width:100%;}
 #view-form, #view-form *{min-width:0;}
 
 /* ---------- RECIPE DETAIL ---------- */
@@ -602,6 +604,7 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
   display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
 .week-nav button:not(.week-label) svg{width:16px; height:16px;}
+.week-nav button.disabled{opacity:.3; pointer-events:none;}
 .week-nav{position:sticky; top:0; z-index:5; padding-top:14px; margin-top:-14px; padding-bottom:14px;
   background:var(--bg);}
 .week-nav::after{
@@ -762,7 +765,7 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
 .sheet-head{padding:6px 20px 12px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border);}
 .sheet-head h3{font-family:var(--font-display); font-size:18px; font-weight:600; margin:0;}
 .sheet-head button{font-size:14px; font-weight:700; color:var(--accent);}
-.sheet-body{overflow-y:auto; padding:14px 20px 20px;}
+.sheet-body{overflow-y:auto; overscroll-behavior-y:contain; padding:14px 20px 20px;}
 .sheet-footer{padding:12px 20px; border-top:1px solid var(--border);}
 .recipe-menu-wrap{position:relative;}
 .recipe-menu-dropdown{
@@ -3073,46 +3076,57 @@ function openAddPlannerEntrySheet(offset, dayIdx){
 
 /* Añadir receta al planificador desde el detalle de receta */
 function openAddToPlannerSheet(recipeId, servings){
-  let selectedOffset=0, selectedDay=(new Date().getDay()+6)%7;
+  // En vez de mostrar siempre la semana de lunes a domingo (que puede
+  // incluir días ya pasados), mostramos una ventana de 7 días que empieza
+  // en el día de hoy: hoy queda seleccionado por defecto y solo se pueden
+  // elegir días de hoy en adelante.
+  let pageOffset=0, selectedDayOffset=0; // selectedDayOffset = nº de días desde hoy
   openSheet({
     title:'Planificar receta',
     bodyBuilder:(body)=>{
       const wrap=document.createElement('div');
-      const monday=mondayOf(new Date());
       wrap.innerHTML=`<div class="day-picker-row" id="dp-row"></div>`;
       body.appendChild(wrap);
       const dpRow=wrap.querySelector('#dp-row');
       function renderDp(){
         dpRow.innerHTML='';
-        const wkMonday=addDays(mondayOf(new Date()), selectedOffset*7);
         for(let i=0;i<7;i++){
-          const date=addDays(wkMonday,i);
+          const dOffset=pageOffset*7+i;
+          const date=addDays(new Date(), dOffset);
+          const dayIdx=(date.getDay()+6)%7;
           const chip=document.createElement('button');
           chip.type='button';
-          chip.className='day-picker-chip'+(selectedDay===i?' active':'');
-          chip.innerHTML=`<span class="dp-name">${DAY_SHORT[i]}</span><span class="dp-num">${date.getDate()}</span>`;
-          chip.addEventListener('click',()=>{ selectedDay=i; renderDp(); });
+          chip.className='day-picker-chip'+(selectedDayOffset===dOffset?' active':'');
+          chip.innerHTML=`<span class="dp-name">${DAY_SHORT[dayIdx]}</span><span class="dp-num">${date.getDate()}</span>`;
+          chip.addEventListener('click',()=>{ selectedDayOffset=dOffset; renderDp(); });
           dpRow.appendChild(chip);
         }
       }
       renderDp();
       const nav=document.createElement('div');
       nav.className='week-nav'; nav.style.marginTop='4px';
-      nav.innerHTML=`<button id="dp-prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="week-label"><div class="range" id="dp-range"></div></div><button id="dp-next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>`;
+      nav.innerHTML=`<button id="dp-prev"${pageOffset===0?' class="disabled"':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="week-label"><div class="range" id="dp-range"></div></div><button id="dp-next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>`;
       body.appendChild(nav);
+      const prevBtn=nav.querySelector('#dp-prev');
       function renderRange(){
-        const wkMonday=addDays(mondayOf(new Date()), selectedOffset*7);
-        const wkSunday=addDays(wkMonday,6);
-        $('#dp-range',nav).textContent=`${wkMonday.getDate()} ${MONTHS[wkMonday.getMonth()]} – ${wkSunday.getDate()} ${MONTHS[wkSunday.getMonth()]}`;
+        const start=addDays(new Date(), pageOffset*7);
+        const end=addDays(start,6);
+        $('#dp-range',nav).textContent=`${start.getDate()} ${MONTHS[start.getMonth()]} – ${end.getDate()} ${MONTHS[end.getMonth()]}`;
+        prevBtn.classList.toggle('disabled', pageOffset===0);
       }
       renderRange();
-      nav.querySelector('#dp-prev').addEventListener('click',()=>{ selectedOffset--; renderDp(); renderRange(); });
-      nav.querySelector('#dp-next').addEventListener('click',()=>{ selectedOffset++; renderDp(); renderRange(); });
+      // No se puede retroceder antes de hoy: no tiene sentido planificar en el pasado.
+      prevBtn.addEventListener('click',()=>{ if(pageOffset>0){ pageOffset--; renderDp(); renderRange(); } });
+      nav.querySelector('#dp-next').addEventListener('click',()=>{ pageOffset++; renderDp(); renderRange(); });
     },
     footerLabel:'Añadir al planificador',
     onConfirm:()=>{
-      const week=ensureWeek(selectedOffset);
-      week[selectedDay].push({type:'recipe', recipeId, servings});
+      const targetDate=addDays(new Date(), selectedDayOffset);
+      targetDate.setHours(0,0,0,0);
+      const weekOffset=Math.round((mondayOf(targetDate)-mondayOf(new Date()))/(7*86400000));
+      const dayIdx=(targetDate.getDay()+6)%7;
+      const week=ensureWeek(weekOffset);
+      week[dayIdx].push({type:'recipe', recipeId, servings});
       addRecipeToShoppingList(recipeId);
       showToast('Receta añadida al planificador');
     }
@@ -3265,7 +3279,7 @@ function renderShoppingAggregated(wrap){
   items.forEach(group=>{
     const swipeWrap=document.createElement('div');
     swipeWrap.className='swipe-wrap';
-    const totalTxt = group.qty ? `${fmtQty(group.qty)} ${group.unit||''}`.trim() : '';
+    const totalTxt = group.qty>1e-9 ? `${fmtQty(group.qty)} ${group.unit||''}`.trim() : '1 ud';
     const breakdownTxt = group.breakdown && group.breakdown.length
       ? group.breakdown.map(b=>`<div>${(`${b.recipe}: ${fmtQty(b.qty)} ${group.unit||''}`).trim()}</div>`).join('')
       : '';
@@ -3367,7 +3381,7 @@ function renderShoppingByRecipe(wrap){
         row.innerHTML=`
           <div class="shop-check" style="${bought?'background:var(--accent);border-color:var(--accent);':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity:${bought?1:0};"><polyline points="20 6 9 17 4 12"/></svg></div>
           <span class="n">${i.name}</span>
-          <span class="qty qty-editable">${fmtQty(effQty)} ${i.unit}</span>
+          <span class="qty qty-editable">${effQty>1e-9 ? `${fmtQty(effQty)} ${i.unit}` : '1 ud'}</span>
           <button type="button" class="del-ing-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         `;
         row.addEventListener('click',(ev)=>{
