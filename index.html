@@ -1190,12 +1190,13 @@ function createSearchBarEl(placeholder, onInput){
 ========================================================= */
 // container: el elemento cuyos hijos directos son los "sortable-item".
 // onMove(fromIndex, toIndex): se llama al soltar, si el índice cambió.
-function enableDragReorder(container, onMove){
+function enableDragReorder(container, onMove, opts){
   // Este contenedor persiste entre renders (add/quitar paso, editar categoría, etc.),
   // así que si ya tiene el listener de arrastre montado, NO lo volvemos a añadir
   // (eso apilaba varios manejadores obsoletos y provocaba reordenamientos erráticos).
-  // Sólo actualizamos qué función "onMove" debe ejecutarse al soltar.
+  // Sólo actualizamos qué función "onMove" y qué límites de autoscroll usar.
   container._sortableOnMove = onMove;
+  container._sortableOpts = opts||{};
   if(container._sortableInitialized) return;
   container._sortableInitialized = true;
 
@@ -1210,6 +1211,13 @@ function enableDragReorder(container, onMove){
   const MAX_SCROLL_SPEED=16; // px por frame como máximo
   let scrollContainer=null, scrollStartTop=0, lastClientY=0;
   let firstItemTop0=0, lastItemBottom0=0;
+  // Límites reales hasta donde puede llegar el autoscroll: por defecto son
+  // los bordes de la propia lista (primer/último elemento), pero se pueden
+  // ampliar un poco vía opts.topBoundarySelector / opts.bottomBoundarySelector
+  // para que, por ejemplo en los pasos de una receta, al arrastrar hacia
+  // arriba también se vea la etiqueta "Pasos" y los botones Secuencial/Tabla,
+  // y al arrastrar hacia abajo se vea el botón "Eliminar receta".
+  let topLimitTop0=0, bottomLimitBottom0=0;
   let autoScrollDir=0, autoScrollSpeed=0, autoScrollRAF=null;
 
   function findScrollParent(el){
@@ -1251,6 +1259,14 @@ function enableDragReorder(container, onMove){
     // más allá del principio o el final de la lista de pasos.
     firstItemTop0=originalRects[0]?originalRects[0].top:0;
     lastItemBottom0=originalRects[items.length-1]?originalRects[items.length-1].bottom:0;
+    // Si se han indicado selectores de límite personalizados y el elemento
+    // existe ahora mismo en el DOM, ampliamos el límite de autoscroll hasta
+    // su borde; si no, usamos el borde de la propia lista como antes.
+    const o=container._sortableOpts||{};
+    const topBoundaryEl = o.topBoundarySelector ? document.querySelector(o.topBoundarySelector) : null;
+    const bottomBoundaryEl = o.bottomBoundarySelector ? document.querySelector(o.bottomBoundarySelector) : null;
+    topLimitTop0 = topBoundaryEl ? topBoundaryEl.getBoundingClientRect().top : firstItemTop0;
+    bottomLimitBottom0 = bottomBoundaryEl ? bottomBoundaryEl.getBoundingClientRect().bottom : lastItemBottom0;
     autoScrollDir=0; autoScrollSpeed=0;
     try{ dragEl.setPointerCapture(pointerId); }catch(err){}
     dragEl.classList.add('sortable-dragging');
@@ -1320,14 +1336,14 @@ function enableDragReorder(container, onMove){
     if(!scrollContainer){ autoScrollDir=0; return; }
     const rect=scrollContainer.getBoundingClientRect();
     const scrollDelta=scrollContainer.scrollTop-scrollStartTop;
-    const firstTopNow=firstItemTop0-scrollDelta;     // posición actual del borde superior del primer paso
-    const lastBottomNow=lastItemBottom0-scrollDelta; // posición actual del borde inferior del último paso
+    const topLimitNow=topLimitTop0-scrollDelta;       // hasta dónde puede subir el autoscroll
+    const bottomLimitNow=bottomLimitBottom0-scrollDelta; // hasta dónde puede bajar el autoscroll
     const distTop=clientY-rect.top;
     const distBottom=rect.bottom-clientY;
-    if(distTop<EDGE_ZONE && firstTopNow<rect.top-0.5){
+    if(distTop<EDGE_ZONE && topLimitNow<rect.top-0.5){
       autoScrollDir=-1;
       autoScrollSpeed=Math.ceil(MAX_SCROLL_SPEED*(1-Math.max(distTop,0)/EDGE_ZONE));
-    } else if(distBottom<EDGE_ZONE && lastBottomNow>rect.bottom+0.5){
+    } else if(distBottom<EDGE_ZONE && bottomLimitNow>rect.bottom+0.5){
       autoScrollDir=1;
       autoScrollSpeed=Math.ceil(MAX_SCROLL_SPEED*(1-Math.max(distBottom,0)/EDGE_ZONE));
     } else {
@@ -1345,9 +1361,10 @@ function enableDragReorder(container, onMove){
     const nextTop=scrollContainer.scrollTop+autoScrollDir*autoScrollSpeed;
     scrollContainer.scrollTop=Math.max(0,Math.min(maxNative,nextTop));
     updateDragPositions(lastClientY);
-    // Recalculamos si hace falta seguir; si ya se ve el principio/final de
-    // la lista de pasos, updateAutoScroll pondrá autoScrollDir a 0 y no
-    // se pedirá ningún frame más (nada de scroll "infinito").
+    // Recalculamos si hace falta seguir; si ya se ve el límite superior/inferior
+    // configurado (por defecto el principio/final de la lista, o el elemento
+    // indicado en topBoundarySelector/bottomBoundarySelector), updateAutoScroll
+    // pondrá autoScrollDir a 0 y no se pedirá ningún frame más (nada de scroll "infinito").
     updateAutoScroll(lastClientY);
   }
 
@@ -1670,6 +1687,8 @@ function closeRecipeMenu(){
   if(dd) dd.classList.remove('open');
 }
 document.addEventListener('click',()=>{ if(recipeMenuOpen) closeRecipeMenu(); });
+// Cierra el desplegable del menú de recetas si el usuario hace scroll en la lista.
+$('#panel-recetas').addEventListener('scroll',()=>{ if(recipeMenuOpen) closeRecipeMenu(); }, {passive:true});
 
 /* Hoja de configuración de la vista de recetas: lista/cuadrícula y
    mostrar/ocultar categorías. La elección se guarda en state.settings
@@ -2192,7 +2211,7 @@ function renderForm(){
       <button type="button" class="add-row-btn" id="f-add-spice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Añadir especia</button>
     </div>
     <div class="field">
-      <label>Pasos</label>
+      <label id="f-steps-label">Pasos</label>
       <div class="shop-seg" id="f-steps-seg">
         <button type="button" class="shop-seg-btn${f.stepsEditView!=='table'?' active':''}" data-view="seq">Secuencial</button>
         <button type="button" class="shop-seg-btn${f.stepsEditView==='table'?' active':''}" data-view="table">Tabla</button>
@@ -2350,7 +2369,14 @@ function renderForm(){
   }
 
   function renderStepRows(){
-    const wrap=$('#f-step-rows'); wrap.innerHTML='';
+    const wrap=$('#f-step-rows');
+    // Evita que el navegador desplace la vista hacia arriba cuando el
+    // elemento con foco desaparece al reconstruir la lista de pasos
+    // (añadir, cambiar tipo o reordenar). Guardamos y restauramos el
+    // scroll del contenedor del formulario alrededor del reintegro.
+    const scrollEl=$('#form-body');
+    const savedScroll=scrollEl?scrollEl.scrollTop:0;
+    wrap.innerHTML='';
     f.steps.forEach((s,idx)=>{
       const card=document.createElement('div');
       card.className='step-card sortable-item'+(s.type==='heading'?' is-heading':'');
@@ -2378,7 +2404,13 @@ function renderForm(){
       const [moved]=f.steps.splice(from,1);
       f.steps.splice(to,0,moved);
       renderStepRows();
-    });
+    }, {topBoundarySelector:'#f-steps-label', bottomBoundarySelector:'#f-delete'});
+    if(scrollEl){
+      scrollEl.scrollTop=savedScroll;
+      // Segunda pasada tras el repintado, por si el navegador ajusta el
+      // scroll de forma asíncrona al mover el foco entre elementos.
+      requestAnimationFrame(()=>{ scrollEl.scrollTop=savedScroll; });
+    }
   }
 }
 
@@ -3692,7 +3724,7 @@ function openBackupConfirmSheet(payload){
     bodyBuilder:(body)=>{
       body.innerHTML=`
         <p class="subsection-hint">Archivo del ${dateTxt}, con <b style="color:var(--text);">${payload.recipes.length}</b> receta${payload.recipes.length===1?'':'s'} y <b style="color:var(--text);">${payload.ingredients.length}</b> alimento${payload.ingredients.length===1?'':'s'}.</p>
-        <p class="subsection-hint">Esta acción no se puede deshacer.</p>
+        <p class="subsection-hint" style="color:var(--paprika);">Esta acción no se puede deshacer.</p>
       `;
     },
     footerLabel:'Restaurar',
