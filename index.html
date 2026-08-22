@@ -104,6 +104,11 @@ input,textarea{font-family:inherit; color:inherit;}
 .icon-btn:active{transform:scale(0.9); background:var(--surface-3);}
 .icon-btn svg{width:18px; height:18px;}
 
+/* ---------- FILA DE BÚSQUEDA DE RECETAS + BOTÓN DE MENÚ ---------- */
+.recipe-search-row{display:flex; align-items:center; gap:8px; margin-bottom:12px;}
+.recipe-search-row .search-bar{flex:1; min-width:0; margin-bottom:0;}
+#recipe-menu-slot{flex-shrink:0;}
+
 /* ---------- MAIN / PANELS ---------- */
 .app-main{flex:1; min-height:0; position:relative; overflow-x:hidden;}
 .panel{
@@ -204,7 +209,7 @@ input,textarea{font-family:inherit; color:inherit;}
   flex-direction:column; align-items:stretch; padding:0 0 10px; overflow:hidden;
 }
 .recipe-list.view-grid .recipe-card img{
-  width:100%; height:120px; border-radius:var(--radius-l) var(--radius-l) 0 0;
+  width:100%; height:158px; border-radius:var(--radius-l) var(--radius-l) 0 0;
 }
 .recipe-list.view-grid .recipe-card-body{
   padding:8px 9px 0; justify-content:flex-start; gap:6px;
@@ -879,7 +884,6 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
     <div class="eyebrow" id="header-eyebrow">Alimentación</div>
     <h1>
       <span id="header-title">Recetas</span>
-      <span class="header-actions" id="header-actions"></span>
     </h1>
   </header>
 
@@ -888,10 +892,13 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
 
     <!-- RECETAS -->
     <section class="panel active" id="panel-recetas">
-      <div class="search-bar" id="recipe-search-bar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="recipe-search" type="text" placeholder="" autocomplete="off">
-        <button type="button" class="clear-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div class="recipe-search-row">
+        <div class="search-bar" id="recipe-search-bar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="recipe-search" type="text" placeholder="" autocomplete="off">
+          <button type="button" class="clear-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div id="recipe-menu-slot"></div>
       </div>
       <div class="chip-row" id="category-chip-row"></div>
       <div class="recipe-list" id="recipe-list"></div>
@@ -1616,7 +1623,7 @@ const CLOSE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 let recipeMenuOpen=false;
 
 function renderHeaderActions(){
-  const el=$('#header-actions'); el.innerHTML='';
+  const el=$('#recipe-menu-slot'); if(!el) return; el.innerHTML='';
   recipeMenuOpen=false;
   if(currentTab==='recetas'){
     const wrap=document.createElement('div');
