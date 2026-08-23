@@ -128,7 +128,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .tabbar{
   position:absolute; left:0; right:0; bottom:0;
   display:flex;
-  padding:2px calc(var(--safe-right) + 10px) calc(2px + var(--safe-bottom) * 0.4) calc(var(--safe-left) + 10px);
+  padding:8px calc(var(--safe-right) + 10px) calc(2px + var(--safe-bottom) * 0.4) calc(var(--safe-left) + 10px);
   background:var(--surface);
   border-top:1px solid var(--border);
   z-index:20;
@@ -295,6 +295,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .freezer-item .fz-name{font-size:15px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;}
 .freezer-item .stepper{gap:10px; flex-shrink:0;}
 .freezer-item .stepper button{width:28px; height:28px; font-size:16px;}
+.freezer-item .stepper button svg{width:14px; height:14px; display:block; flex-shrink:0;}
 .freezer-item .stepper .count{font-size:15.5px; min-width:18px;}
 
 /* ---------- RECIPE DETAIL ---------- */
@@ -2778,12 +2779,25 @@ $('#personal-save-btn').addEventListener('click',()=>{
    mousedown/touchstart evita que el contenteditable pierda el foco (y con
    él la selección de texto) antes de aplicar el comando. */
 $$('#personal-diet-toolbar .fmt-btn').forEach(btn=>{
-  const keepFocus=e=>e.preventDefault();
-  btn.addEventListener('mousedown',keepFocus);
-  btn.addEventListener('touchstart',keepFocus,{passive:false});
-  btn.addEventListener('click',()=>{
+  let lastTouchRun=0;
+  const runCmd=()=>{
     if($('#personal-diet-text').contentEditable!=='true') return;
     document.execCommand(btn.dataset.cmd, false, null);
+  };
+  btn.addEventListener('mousedown',e=>e.preventDefault());
+  // En iOS, al llamar a preventDefault() en touchstart el navegador suprime el
+  // evento "click" sintético posterior (evita el "click fantasma"), por lo que
+  // el comando debe aplicarse aquí mismo en vez de esperar al click.
+  btn.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    lastTouchRun=Date.now();
+    runCmd();
+  },{passive:false});
+  btn.addEventListener('click',()=>{
+    // Evita ejecutar el comando dos veces en dispositivos donde el touch
+    // también dispare un click (p. ej. desktop con pantalla táctil híbrida).
+    if(Date.now()-lastTouchRun<500) return;
+    runCmd();
   });
 });
 
@@ -2829,9 +2843,9 @@ function renderFreezerList(){
       <div class="freezer-item">
         <span class="fz-name">${item.name}</span>
         <div class="stepper">
-          <button type="button" class="fz-dec">−</button>
+          <button type="button" class="fz-dec" aria-label="Disminuir cantidad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           <span class="count">${item.qty}</span>
-          <button type="button" class="fz-inc">+</button>
+          <button type="button" class="fz-inc" aria-label="Aumentar cantidad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
         </div>
       </div>`;
     const itemEl=swipeWrap.querySelector('.freezer-item');
