@@ -118,7 +118,7 @@ input,textarea{font-family:inherit; color:inherit;}
   position:absolute; inset:0;
   overflow-y:auto; overflow-x:hidden;
   overscroll-behavior-y:contain;
-  padding:0 20px calc(72px + var(--safe-bottom));
+  padding:0 20px calc(64px + var(--safe-bottom) * 0.4);
   opacity:0; pointer-events:none; transform:translateY(6px);
   transition:opacity .2s ease, transform .2s ease;
 }
@@ -128,7 +128,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .tabbar{
   position:absolute; left:0; right:0; bottom:0;
   display:flex;
-  padding:4px calc(var(--safe-right) + 10px) calc(3px + var(--safe-bottom)) calc(var(--safe-left) + 10px);
+  padding:2px calc(var(--safe-right) + 10px) calc(2px + var(--safe-bottom) * 0.4) calc(var(--safe-left) + 10px);
   background:var(--surface);
   border-top:1px solid var(--border);
   z-index:20;
@@ -219,6 +219,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .recipe-list.view-grid .recipe-card-title{
   font-size:15px; -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden;
 }
+.recipe-list.view-grid .empty-state{grid-column:1/-1; width:100%;}
 .tag-row{display:flex; gap:6px; flex-wrap:wrap;}
 .tag{
   font-size:10.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
@@ -257,6 +258,45 @@ input,textarea{font-family:inherit; color:inherit;}
 .view-body{flex:1; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; padding:0 20px 40px; max-width:100%;}
 #view-form, #view-form *{min-width:0;}
 
+/* ---------- ÁREA PERSONAL (Dieta / Congelador) ---------- */
+#personal-body{display:flex; flex-direction:column; padding:0; overflow:hidden;}
+#personal-mode-seg{margin:14px 20px 0;}
+.personal-diet-wrap{flex:1; min-height:0; display:flex; flex-direction:column;}
+.personal-textarea{
+  flex:1; width:100%; min-height:0; border:none; outline:none; resize:none;
+  background:transparent; color:var(--text); font-family:inherit;
+  font-size:15.5px; line-height:1.6;
+  padding:16px 20px calc(20px + var(--safe-bottom));
+  overflow-y:auto; overscroll-behavior-y:contain;
+}
+.personal-textarea::placeholder{color:var(--text-mute);}
+.personal-editable:empty::before{content:attr(data-placeholder); color:var(--text-mute);}
+.personal-editable b, .personal-editable strong{font-weight:700;}
+.personal-editable i, .personal-editable em{font-style:italic;}
+.personal-toolbar{
+  display:flex; gap:8px; padding:10px 20px; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.personal-toolbar .fmt-btn{
+  width:34px; height:34px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; font-size:14.5px; color:var(--text);
+  transition:transform .1s ease, background .15s ease;
+}
+.personal-toolbar .fmt-btn:active{transform:scale(0.88); background:var(--surface-3);}
+.personal-toolbar .fmt-btn i{font-style:italic;}
+
+.personal-freezer-wrap{flex:1; min-height:0; display:flex; flex-direction:column; padding:14px 20px calc(20px + var(--safe-bottom)); overflow-y:auto; overscroll-behavior-y:contain;}
+.freezer-list{display:flex; flex-direction:column; gap:9px; margin-bottom:14px;}
+.freezer-item{
+  position:relative; background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-m); padding:12px 14px;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  transition:transform .18s ease; touch-action:pan-y;
+}
+.freezer-item .fz-name{font-size:15px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;}
+.freezer-item .stepper{gap:10px; flex-shrink:0;}
+.freezer-item .stepper button{width:28px; height:28px; font-size:16px;}
+.freezer-item .stepper .count{font-size:15.5px; min-width:18px;}
+
 /* ---------- RECIPE DETAIL ---------- */
 .detail-photo{
   width:calc(100% + 40px); margin:0 -20px; height:230px; object-fit:cover;
@@ -283,6 +323,7 @@ input,textarea{font-family:inherit; color:inherit;}
   width:34px; height:34px; border-radius:50%; background:var(--surface-3);
   display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700;
   border:1px solid var(--border-strong); transition:transform .1s ease, background .15s;
+  padding:0; line-height:1; box-sizing:border-box;
 }
 .stepper button:active{transform:scale(0.85); background:var(--accent); color:var(--accent-ink);}
 .stepper .count{font-size:19px; font-weight:700; min-width:22px; text-align:center; font-variant-numeric:tabular-nums;}
@@ -644,7 +685,7 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-l);
   padding:14px 14px 10px; margin-bottom:12px;
 }
-.day-block.today{border-color:var(--accent);}
+.day-block.today{border-color:var(--accent); border-width:1.5px; box-shadow:0 0 0 1px rgba(147,178,94,0.35);}
 .day-block-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px;}
 .day-name{font-family:var(--font-display); font-size:17px; font-weight:600;}
 .day-date{font-size:12.5px; color:var(--text-mute); font-weight:600;}
@@ -1004,6 +1045,39 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
     </div>
   </div>
 
+  <!-- ===== OVERLAY: ÁREA PERSONAL (DIETA / CONGELADOR) ===== -->
+  <div class="view-overlay" id="view-personal">
+    <div class="view-header">
+      <button class="back-btn" id="personal-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h2 id="personal-view-title">Dieta</h2>
+      <span class="header-actions">
+        <button class="icon-btn" id="personal-edit-btn" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <button class="icon-btn" id="personal-save-btn" title="Guardar" style="background:var(--accent); color:var(--accent-ink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+        <button class="icon-btn" id="personal-freezer-add-btn" title="Añadir alimento" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      </span>
+    </div>
+    <div class="view-body" id="personal-body">
+      <div class="shop-seg" id="personal-mode-seg">
+        <button type="button" class="shop-seg-btn active" data-mode="diet">Dieta</button>
+        <button type="button" class="shop-seg-btn" data-mode="freezer">Congelador</button>
+      </div>
+
+      <!-- DIETA: texto enriquecido (negrita/cursiva), bloqueado salvo modo edición -->
+      <div class="personal-diet-wrap" id="personal-diet-wrap">
+        <div class="personal-toolbar" id="personal-diet-toolbar" style="display:none">
+          <button type="button" class="fmt-btn" data-cmd="bold" title="Negrita"><b>N</b></button>
+          <button type="button" class="fmt-btn" data-cmd="italic" title="Cursiva"><i>K</i></button>
+        </div>
+        <div class="personal-textarea personal-editable" id="personal-diet-text" contenteditable="false" data-placeholder="Escribe aquí tu dieta…"></div>
+      </div>
+
+      <!-- CONGELADOR: lista de alimentos con cantidad -->
+      <div class="personal-freezer-wrap" id="personal-freezer-wrap" style="display:none">
+        <div class="freezer-list" id="freezer-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== POPUP: CONFIRMACIÓN ===== -->
   <div class="confirm-backdrop" id="confirm-backdrop">
     <div class="confirm-dialog" id="confirm-dialog">
@@ -1086,7 +1160,16 @@ function mondayOf(date){
   return d;
 }
 function addDays(date,n){ const d=new Date(date); d.setDate(d.getDate()+n); return d; }
-function dateKey(date){ return date.toISOString().slice(0,10); }
+function dateKey(date){
+  // Construye la clave a partir de los componentes LOCALES de la fecha
+  // (no usar toISOString, que convierte a UTC y desplaza el día en huso
+  // horarios adelantados a UTC como España, rompiendo la comparación con
+  // el día de hoy y las claves de la semana en el planificador).
+  const y=date.getFullYear();
+  const m=String(date.getMonth()+1).padStart(2,'0');
+  const d=String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
 function showToast(msg){
   const t=$('#toast'); $('#toast-text').textContent=msg; t.classList.add('show');
   clearTimeout(showToast._tm);
@@ -1164,9 +1247,9 @@ function enhanceSearchBar(wrapperEl, onChange){
   function sync(){ wrapperEl.classList.toggle('has-value', !!input.value); }
   input.addEventListener('input',sync);
   clearBtn.addEventListener('click',()=>{
+    input.blur();
     input.value='';
     sync();
-    input.focus();
     if(onChange) onChange('');
     else input.dispatchEvent(new Event('input'));
   });
@@ -1458,6 +1541,10 @@ const state = {
     shopMode: 'agregado',       // 'recetas' | 'agregado' — última vista elegida en la lista de la compra
     recipeView: 'list',         // 'list' | 'grid' — vista de la lista de recetas
     showCategories: true        // muestra/oculta las categorías bajo cada receta
+  },
+  personal: {
+    diet: '',        // notas de dieta (HTML simple: negrita/cursiva)
+    freezerItems: [] // [{id, name, qty}] — alimentos guardados en el congelador
   }
 };
 
@@ -1663,11 +1750,13 @@ function renderHeaderActions(){
     dropdown.innerHTML=`
       <button type="button" class="icon-btn" id="menu-add-recipe" title="Nueva receta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <button type="button" class="icon-btn" id="menu-ingredients" title="Alimentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v20M6 2c-2 0-3 2-3 5s1 5 3 5M6 12v10"/><path d="M18 2v9a3 3 0 0 1-6 0V2"/><path d="M15 2v6"/></svg></button>
+      <button type="button" class="icon-btn" id="menu-personal" title="Área personal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></button>
       <button type="button" class="icon-btn" id="menu-view" title="Vista de recetas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
       <button type="button" class="icon-btn" id="menu-backup" title="Copia de seguridad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
     `;
     dropdown.querySelector('#menu-add-recipe').addEventListener('click',(e)=>{ e.stopPropagation(); closeRecipeMenu(); openRecipeForm(null); });
     dropdown.querySelector('#menu-ingredients').addEventListener('click',(e)=>{ e.stopPropagation(); closeRecipeMenu(); openIngredientsView(); });
+    dropdown.querySelector('#menu-personal').addEventListener('click',(e)=>{ e.stopPropagation(); closeRecipeMenu(); openPersonalView(); });
     dropdown.querySelector('#menu-view').addEventListener('click',(e)=>{ e.stopPropagation(); closeRecipeMenu(); openRecipeViewSheet(); });
     dropdown.querySelector('#menu-backup').addEventListener('click',(e)=>{ e.stopPropagation(); closeRecipeMenu(); openBackupSheet(); });
     wrap.appendChild(dropdown);
@@ -1780,7 +1869,7 @@ function renderRecipeList(){
     const empty=document.createElement('div');
     empty.className='empty-state';
     empty.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <h3>Sin recetas</h3><p>No hay recetas que coincidan con tu búsqueda. Prueba con otro término o añade una nueva receta.</p>`;
+      <h3>Sin recetas</h3>`;
     list.appendChild(empty);
     return;
   }
@@ -2163,8 +2252,15 @@ function openRecipeForm(recipeId){
     $('#form-title').textContent='Nueva receta';
   }
   renderForm();
-  $('#form-body').scrollTop=0;
+  const formBody=$('#form-body');
+  formBody.scrollTop=0;
   $('#view-form').classList.add('open');
+  // Asegura que el formulario arranque siempre arriba del todo, incluso si el
+  // contenido aún se está maquetando cuando se ejecuta el scrollTop anterior.
+  requestAnimationFrame(()=>{
+    formBody.scrollTop=0;
+    requestAnimationFrame(()=>{ formBody.scrollTop=0; });
+  });
 }
 function closeRecipeForm(){ $('#view-form').classList.remove('open'); }
 $('#form-back').addEventListener('click',closeRecipeForm);
@@ -2618,6 +2714,166 @@ $('#ing-add-btn').addEventListener('click',()=>{
   else openIngredientEditSheet(null);
 });
 
+/* =========================================================
+   ÁREA PERSONAL (DIETA / CONGELADOR)
+========================================================= */
+let personalMode='diet'; // 'diet' | 'freezer'
+
+function openPersonalView(){
+  switchPersonalMode('diet');
+  $('#view-personal').classList.add('open');
+}
+function closePersonalView(){
+  // si se sale con la dieta en edición sin guardar, descarta los cambios en
+  // pantalla y vuelve a bloquear el campo para la próxima visita.
+  const dietTa=$('#personal-diet-text');
+  dietTa.contentEditable='false';
+  dietTa.innerHTML=sanitizeRichText(state.personal.diet||'');
+  $('#personal-diet-toolbar').style.display='none';
+  $('#view-personal').classList.remove('open');
+}
+$('#personal-back').addEventListener('click',closePersonalView);
+
+function switchPersonalMode(mode){
+  personalMode=mode;
+  $$('#personal-mode-seg .shop-seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+  $('#personal-view-title').textContent = mode==='freezer' ? 'Congelador' : 'Dieta';
+
+  const dietTa=$('#personal-diet-text');
+  dietTa.innerHTML=sanitizeRichText(state.personal.diet||'');
+  dietTa.contentEditable='false'; // la dieta siempre arranca bloqueada; se desbloquea con "Editar"
+  $('#personal-diet-toolbar').style.display='none';
+
+  $('#personal-diet-wrap').style.display = mode==='diet' ? '' : 'none';
+  $('#personal-freezer-wrap').style.display = mode==='freezer' ? '' : 'none';
+  $('#personal-edit-btn').style.display = mode==='diet' ? '' : 'none';
+  $('#personal-save-btn').style.display = mode==='diet' ? '' : 'none';
+  $('#personal-freezer-add-btn').style.display = mode==='freezer' ? '' : 'none';
+
+  if(mode==='freezer') renderFreezerList();
+}
+$$('#personal-mode-seg .shop-seg-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(personalMode===btn.dataset.mode) return;
+    switchPersonalMode(btn.dataset.mode);
+  });
+});
+$('#personal-edit-btn').addEventListener('click',()=>{
+  const ta=$('#personal-diet-text');
+  ta.contentEditable='true';
+  $('#personal-diet-toolbar').style.display='flex';
+  ta.focus();
+});
+$('#personal-save-btn').addEventListener('click',()=>{
+  const ta=$('#personal-diet-text');
+  state.personal.diet=sanitizeRichText(ta.innerHTML);
+  ta.innerHTML=state.personal.diet; // normaliza el HTML guardado
+  ta.contentEditable='false';
+  $('#personal-diet-toolbar').style.display='none';
+  scheduleSave();
+  showToast('Guardado');
+});
+
+/* Botones de formato (negrita/cursiva). El preventDefault en
+   mousedown/touchstart evita que el contenteditable pierda el foco (y con
+   él la selección de texto) antes de aplicar el comando. */
+$$('#personal-diet-toolbar .fmt-btn').forEach(btn=>{
+  const keepFocus=e=>e.preventDefault();
+  btn.addEventListener('mousedown',keepFocus);
+  btn.addEventListener('touchstart',keepFocus,{passive:false});
+  btn.addEventListener('click',()=>{
+    if($('#personal-diet-text').contentEditable!=='true') return;
+    document.execCommand(btn.dataset.cmd, false, null);
+  });
+});
+
+/* Sanitiza HTML del editor de dieta: sólo permite negrita/cursiva/saltos de
+   línea y elimina cualquier atributo (estilos, eventos, etc.). */
+function sanitizeRichText(html){
+  const allowed=new Set(['B','STRONG','I','EM','BR','DIV']);
+  const tmp=document.createElement('div');
+  tmp.innerHTML=html;
+  (function clean(node){
+    [...node.childNodes].forEach(child=>{
+      if(child.nodeType===1){
+        if(!allowed.has(child.tagName)){
+          while(child.firstChild) node.insertBefore(child.firstChild, child);
+          node.removeChild(child);
+        } else {
+          [...child.attributes].forEach(attr=>child.removeAttribute(attr.name));
+          clean(child);
+        }
+      } else if(child.nodeType!==3){
+        node.removeChild(child);
+      }
+    });
+  })(tmp);
+  return tmp.innerHTML;
+}
+
+/* ---------- CONGELADOR: lista de alimentos con cantidad ---------- */
+function renderFreezerList(){
+  const wrap=$('#freezer-list'); wrap.innerHTML='';
+  const items=state.personal.freezerItems;
+
+  if(items.length===0){
+    wrap.innerHTML=`<div class="empty-state" style="padding:30px 20px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 7 12 3 4 7v10l8 4 8-4Z"/><path d="M4 7l8 4 8-4M12 11v10M8 5l8 4M16 5l-8 4"/></svg><h3>Congelador vacío</h3></div>`;
+    return;
+  }
+
+  items.forEach(item=>{
+    const swipeWrap=document.createElement('div');
+    swipeWrap.className='swipe-wrap';
+    swipeWrap.innerHTML=`
+      <div class="swipe-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+      <div class="freezer-item">
+        <span class="fz-name">${item.name}</span>
+        <div class="stepper">
+          <button type="button" class="fz-dec">−</button>
+          <span class="count">${item.qty}</span>
+          <button type="button" class="fz-inc">+</button>
+        </div>
+      </div>`;
+    const itemEl=swipeWrap.querySelector('.freezer-item');
+    swipeWrap.querySelector('.fz-dec').addEventListener('click',()=>{
+      item.qty=Math.max(0, item.qty-1);
+      itemEl.querySelector('.count').textContent=item.qty;
+      scheduleSave();
+    });
+    swipeWrap.querySelector('.fz-inc').addEventListener('click',()=>{
+      item.qty+=1;
+      itemEl.querySelector('.count').textContent=item.qty;
+      scheduleSave();
+    });
+    attachSwipe(swipeWrap, itemEl, ()=>{
+      state.personal.freezerItems=state.personal.freezerItems.filter(i=>i.id!==item.id);
+      renderFreezerList();
+    });
+    wrap.appendChild(swipeWrap);
+  });
+}
+
+$('#personal-freezer-add-btn').addEventListener('click',()=>{
+  openSheet({
+    title:'Nuevo alimento en el congelador',
+    bodyBuilder:(body)=>{
+      body.innerHTML=`
+        <div class="field"><input type="text" id="fz-sheet-name" placeholder="Nombre del alimento"></div>
+        <div class="field"><input type="number" id="fz-sheet-qty" placeholder="Cantidad" inputmode="numeric" min="0" step="1" value="1"></div>
+      `;
+      setTimeout(()=>$('#fz-sheet-name').focus(),250);
+    },
+    footerLabel:'Añadir',
+    onConfirm:()=>{
+      const name=$('#fz-sheet-name').value.trim();
+      if(!name) return;
+      const qty=Math.max(0, Math.round(Number($('#fz-sheet-qty').value))||0);
+      state.personal.freezerItems.push({id:uid('frz'), name, qty});
+      renderFreezerList();
+    }
+  });
+});
+
 function openIngredientEditSheet(ing){
   const isEdit=!!ing;
   let isSpice = ing ? !!ing.isSpice : false;
@@ -2939,14 +3195,18 @@ $('#week-next').addEventListener('click',()=>{ weekOffset++; renderPlanner(); })
    es la semana en curso), dejando la cabecera de navegación visible. */
 function centerPlannerOnToday(){
   const panel=$('#panel-planificador');
-  requestAnimationFrame(()=>{
+  const applyScroll=()=>{
     if(weekOffset!==0){ panel.scrollTop=0; return; }
     const todayBlock=$('#week-days .day-block.today');
     if(!todayBlock){ panel.scrollTop=0; return; }
     const nav=$('#panel-planificador .week-nav');
     const navHeight=nav?nav.getBoundingClientRect().height:0;
     panel.scrollTop=Math.max(todayBlock.offsetTop-navHeight-10, 0);
-  });
+  };
+  // Doble rAF: garantiza que el layout del panel (que se hace visible con una
+  // transición de opacidad/transform al cambiar de pestaña) ya esté calculado
+  // antes de leer offsetTop, evitando que el scroll se quede en 0.
+  requestAnimationFrame(()=>{ applyScroll(); requestAnimationFrame(applyScroll); });
 }
 
 /* Sheet con calendario para elegir semana desde la pestaña Planificador */
@@ -3597,9 +3857,18 @@ async function loadState(){
       state.shopping.excludedIngredientIds = state.shopping.excludedIngredientIds||[];
       state.shopping.qtyOverrides = (state.shopping.qtyOverrides && typeof state.shopping.qtyOverrides==='object') ? state.shopping.qtyOverrides : {};
       const savedSettings = (saved.settings && typeof saved.settings==='object') ? saved.settings : {};
-      state.settings.shopMode = (savedSettings.shopMode==='recetas') ? 'recetas' : 'agregado';
+      // La vista de la lista de la compra siempre empieza en "Agregado" al
+      // abrir la app; el valor guardado sólo se usa para mantenerlo mientras
+      // dura la sesión (ver click handler de #shop-seg), nunca se restaura
+      // entre sesiones.
+      state.settings.shopMode = 'agregado';
       state.settings.recipeView = (savedSettings.recipeView==='grid') ? 'grid' : 'list';
       state.settings.showCategories = savedSettings.showCategories!==false;
+      const savedPersonal = (saved.personal && typeof saved.personal==='object') ? saved.personal : {};
+      state.personal.diet = typeof savedPersonal.diet==='string' ? savedPersonal.diet : '';
+      state.personal.freezerItems = Array.isArray(savedPersonal.freezerItems)
+        ? savedPersonal.freezerItems.filter(it=>it && typeof it.name==='string').map(it=>({id:it.id||uid('frz'), name:it.name, qty:Number(it.qty)||0}))
+        : [];
       return true; // ya había datos guardados
     }
   }catch(err){
@@ -3682,7 +3951,8 @@ function buildBackupPayload(){
     exportedAt:new Date().toISOString(),
     categories:state.categories,
     ingredients:state.ingredients,
-    recipes:state.recipes
+    recipes:state.recipes,
+    personal:state.personal
   };
 }
 
@@ -3746,6 +4016,12 @@ function openBackupConfirmSheet(payload){
       state.categories = payload.categories;
       state.ingredients = payload.ingredients;
       state.recipes = payload.recipes;
+      if(payload.personal && typeof payload.personal==='object'){
+        state.personal.diet = typeof payload.personal.diet==='string' ? payload.personal.diet : '';
+        state.personal.freezerItems = Array.isArray(payload.personal.freezerItems)
+          ? payload.personal.freezerItems.filter(it=>it && typeof it.name==='string').map(it=>({id:it.id||uid('frz'), name:it.name, qty:Number(it.qty)||0}))
+          : [];
+      }
       renderCategoryChips();
       renderRecipeList();
       showToast('Copia de seguridad restaurada');
@@ -3807,7 +4083,8 @@ if('serviceWorker' in navigator){
   const screens = [
     { overlay: '#view-detail',      close: () => closeRecipeDetail() },
     { overlay: '#view-form',        close: () => closeRecipeForm() },
-    { overlay: '#view-ingredients', close: () => $('#view-ingredients').classList.remove('open') }
+    { overlay: '#view-ingredients', close: () => $('#view-ingredients').classList.remove('open') },
+    { overlay: '#view-personal',    close: () => closePersonalView() }
   ];
 
   screens.forEach(({overlay, close}) => {
