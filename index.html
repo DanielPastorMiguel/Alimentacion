@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Alimentación">
-<meta name="theme-color" content="#0A0E14">
+<meta name="theme-color" content="#121821">
 <meta name="description" content="Recetas, planificador semanal y lista de la compra.">
 <title>Alimentación</title>
 <link rel="manifest" href="manifest.json">
@@ -49,10 +49,12 @@
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
-html,body{height:100%; overscroll-behavior:none;}
+/* El fondo de html/body es el que iOS usa para rellenar la franja de la barra de inicio:
+   mismo color que la barra de pestañas para que parezca que llega hasta abajo. */
+html,body{height:100%; overscroll-behavior:none; background:var(--surface);}
 body{
   margin:0;
-  background:var(--bg);
+  background:var(--surface);
   color:var(--text);
   font-family:var(--font-ui);
   overflow:hidden;
@@ -133,7 +135,7 @@ input,textarea{font-family:inherit; color:inherit;}
 .tabbar{
   position:absolute; left:0; right:0; bottom:0;
   display:flex;
-  padding:4px calc(var(--safe-right) + 10px) calc(1px + var(--safe-bottom) * 0.2) calc(var(--safe-left) + 10px);
+  padding:4px calc(var(--safe-right) + 10px) calc(8px + var(--safe-bottom) * 0.2) calc(var(--safe-left) + 10px);
   background:var(--surface);
   border-top:1px solid var(--border);
   z-index:20;
@@ -932,8 +934,7 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
 
 /* ---------- REDISEÑO VISUAL (capa de estilo moderna) ---------- */
 .tabbar{
-  background:rgba(18,24,33,0.78);
-  -webkit-backdrop-filter:saturate(180%) blur(22px); backdrop-filter:saturate(180%) blur(22px);
+  background:var(--surface);
   border-top:1px solid var(--border);
 }
 .tab-btn{position:relative;}
@@ -988,9 +989,6 @@ body.sortable-active, body.sortable-active *{-webkit-user-select:none !important
   background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius-m);
   padding:13px 14px; font-size:16px; color:var(--text); outline:none; min-height:48px; color-scheme:dark;
 }
-
-/* Hueco inferior en iOS (PWA): ver fitAppBottom() */
-#app{bottom:calc(var(--app-bottom-ext,0px) * -1);}
 </style>
 </head>
 <body>
@@ -4398,37 +4396,6 @@ if('serviceWorker' in navigator){
   });
 })();
 
-
-/* =========================================================
-   AJUSTE DEL HUECO INFERIOR EN iOS (modo app / PWA)
-   En algunos iPhone la ventana útil de la PWA mide menos que la pantalla y
-   queda una franja vacía bajo la barra de pestañas. Se mide esa diferencia y
-   se recupera el 75 % para que la barra baje, dejando un pequeño margen.
-========================================================= */
-(function(){
-  const KEEP_RATIO = 0.25; // fracción del hueco original que se conserva
-  function fit(){
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
-    const ae=document.activeElement;
-    if(ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return; // teclado abierto: no tocar
-    let ext=0;
-    if(standalone && window.innerHeight>window.innerWidth){
-      const full=Math.max(window.screen.width, window.screen.height);
-      const vv=window.visualViewport;
-      const h=Math.max(window.innerHeight, vv?vv.height:0);
-      const gap=Math.min(60, Math.max(0, full-h));
-      ext=Math.round(gap*(1-KEEP_RATIO));
-    }
-    document.documentElement.style.setProperty('--app-bottom-ext', ext+'px');
-  }
-  let t=null;
-  const later=()=>{ clearTimeout(t); t=setTimeout(fit,150); };
-  window.addEventListener('load',fit);
-  window.addEventListener('pageshow',later);
-  window.addEventListener('orientationchange',later);
-  window.addEventListener('resize',later);
-  fit();
-})();
 
 /* =========================================================
    INICIALIZACIÓN
