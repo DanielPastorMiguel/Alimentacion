@@ -51,7 +51,8 @@
 html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
 /* El fondo de html/body es el que iOS usa para rellenar la franja de la barra de inicio:
    mismo color que la barra de pestañas para que parezca que llega hasta abajo. */
-html,body{height:100%; overscroll-behavior:none; background:var(--surface);}
+html{min-height:100%;}
+html,body{overscroll-behavior:none; background:var(--surface);}
 body{
   margin:0;
   background:var(--surface);
@@ -59,8 +60,11 @@ body{
   font-family:var(--font-ui);
   overflow:hidden;
   overscroll-behavior:none;
+  /* Anclado a toda la pantalla (inset:0) en vez de height:100%: en iOS (PWA, vertical)
+     el 100% puede resolverse más corto que la pantalla y deja una franja vacía abajo. */
   position:fixed;
-  width:100%;
+  top:0; right:0; bottom:0; left:0;
+  width:auto; height:auto;
   -webkit-font-smoothing:antialiased;
 }
 #app{
