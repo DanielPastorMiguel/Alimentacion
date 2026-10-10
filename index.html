@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- "black" (opaque) en vez de "black-translucent": en iOS 26 la opción translúcida deja la ventana de la app
+     más corta que la pantalla (una barra de estado de alto) y provoca la franja inferior (WebKit bug 301108). -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Alimentación">
 <meta name="theme-color" content="#121821">
 <meta name="description" content="Recetas, planificador semanal y lista de la compra.">
