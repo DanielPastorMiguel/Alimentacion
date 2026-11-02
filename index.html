@@ -1109,6 +1109,26 @@ html.kb-open .view-header, html.kb-open .sheet-backdrop, html.kb-open .recipe-me
     D.addEventListener(t,function(e){ if(inLogUI(e.target)) return; log(t.toUpperCase(),desc(e.target)+' pid='+e.pointerId+' '+snap()); },true);
   });
 
+  /* ---- portapapeles / selección de texto (para confirmar si el fallo nace al pegar) ---- */
+  ['copy','cut','paste','contextmenu'].forEach(function(t){
+    D.addEventListener(t,function(e){
+      if(inLogUI(e.target)) return;
+      var extra='';
+      if(t==='paste'){ try{ extra=' texto='+((e.clipboardData&&e.clipboardData.getData('text'))||'').length+'ch'; }catch(_){} }
+      log(t.toUpperCase(),desc(e.target)+extra+' '+snap());
+    },true);
+  });
+  D.addEventListener('beforeinput',function(e){
+    if(/^(insertFromPaste|insertFromDrop|deleteByCut|historyUndo|historyRedo)$/.test(e.inputType)) log('BEFOREINPUT',e.inputType+' '+desc(e.target));
+  },true);
+  var lastSel=0;
+  D.addEventListener('selectionchange',function(){
+    var n=Date.now(); if(n-lastSel<1000) return; lastSel=n;
+    var a=D.activeElement, l='?';
+    try{ l=(a&&typeof a.selectionStart==='number')?(a.selectionEnd-a.selectionStart):String(W.getSelection()).length; }catch(_){}
+    log('SELECTION','len='+l+' en '+desc(a));
+  });
+
   /* ---- apertura/cierre de pantallas y clases del body ---- */
   function startMO(){
     try{
@@ -1133,7 +1153,7 @@ html.kb-open .view-header, html.kb-open .sheet-backdrop, html.kb-open .recipe-me
     return false;
   }
   function related(a,b){ return !a||!b||a===b||(a.contains&&a.contains(b))||(b.contains&&b.contains(a)); }
-  var tp=null, pending=null, ckTimer=null, lastProbe=0;
+  var tp=null, pending=null, ckTimer=null, lastProbe=0, lastEnd=0;
 
   function probe(why,force){
     var now=Date.now(); if(!force&&now-lastProbe<3000) return; lastProbe=now;
@@ -1160,6 +1180,7 @@ html.kb-open .view-header, html.kb-open .sheet-backdrop, html.kb-open .recipe-me
   W.addEventListener('touchstart',function(e){ if(tp&&e.defaultPrevented) tp.prevented=true; },{passive:true});
 
   D.addEventListener('touchend',function(e){
+    lastEnd=Date.now();
     if(!tp) return;
     var s=tp; tp=null; var t=e.changedTouches[0];
     var mv=Math.round(Math.hypot(t.clientX-s.x,t.clientY-s.y)), dur=Date.now()-s.t;
@@ -1179,10 +1200,26 @@ html.kb-open .view-header, html.kb-open .sheet-backdrop, html.kb-open .recipe-me
     if(pending){
       clearTimeout(ckTimer);
       var same=related(pending.el,e.target);
-      log(same?'TAP':'CLICK_RETARGET',(same?'ok ':'')+pending.info+' click+'+(Date.now()-pending.t)+'ms'+(same?'':' click_en='+desc(e.target)));
+      log(same?'TAP':'CLICK_RETARGET',(same?'ok ':'')+pending.info+' click+'+(Date.now()-pending.t)+'ms'+(same?'':' click_en='+desc(e.target))+(e.isTrusted?'':' (sintético)'));
       pending=null;
+    } else if(e.isTrusted){
+      var dt=Date.now()-lastEnd;
+      if(dt<8000) log('CLICK_LATE','click nativo '+dt+'ms despues del ultimo touchend :: '+desc(e.target));
     }
   },true);
+
+  /* ---- latencia de entrega de eventos táctiles y fotogramas perdidos ---- */
+  ['touchstart','touchend','pointerdown'].forEach(function(t){
+    D.addEventListener(t,function(e){
+      try{ var lag=performance.now()-e.timeStamp; if(lag>100&&lag<60000&&!inLogUI(e.target)) log('LAG',t+' entregado con '+Math.round(lag)+'ms de retraso'); }catch(_){}
+    },{capture:true,passive:true});
+  });
+  (function(){
+    var lf=0, n=0;
+    function raf(ts){ if(lf&&ts-lf>200&&!D.hidden) log('FRAME_DROP','fotograma de '+Math.round(ts-lf)+'ms'); lf=ts; requestAnimationFrame(raf); }
+    D.addEventListener('visibilitychange',function(){ lf=0; });
+    requestAnimationFrame(raf);
+  })();
 
   /* ---- detector de bloqueo del hilo principal ---- */
   setInterval(function(){
@@ -4677,26 +4714,58 @@ if('serviceWorker' in navigator){
 
   ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 
-  let start=null, timer=null;
-  document.addEventListener('click',()=>{ clearTimeout(timer); timer=null; },true);
+  /* --- Activación por toque cuando iOS deja de enviar "click" ---
+     Normal: se espera el click nativo; si en 120 ms no llega, se ejecuta al soltar el dedo
+     y la sesión pasa a modo "toque primero" (se ejecuta al instante en cada toque).
+     Cualquier click nativo duplicado/tardío de un toque ya atendido se descarta. */
+  const L=(t,m)=>{ try{ window.__rlog && window.__rlog.log(t,m); }catch(_){} };
+  const SKIP='input,textarea,select,a[href],label,[contenteditable],.drag-handle,.fmt-btn,#rlog-panel,#rlog-btn';
+  function clickable(el){
+    for(let n=el,i=0;n&&n.nodeType===1&&i<6;n=n.parentElement,i++){
+      if(/^(BUTTON|SUMMARY)$/.test(n.tagName)||n.getAttribute('role')==='button') return true;
+      try{ if(getComputedStyle(n).cursor==='pointer') return true; }catch(_){}
+    }
+    return false;
+  }
+  let touchFirst=false, ts=null, fbTimer=null, lastScroll=0, handled=[];
+  document.addEventListener('scroll',()=>{ lastScroll=Date.now(); },true);
+
+  function fire(el,x,y){
+    handled.push({t:Date.now(),x,y});
+    const ev=new MouseEvent('click',{bubbles:true,cancelable:true,composed:true,view:window,clientX:x,clientY:y});
+    ev.__rf=true;                      // marca: es nuestro click, no el nativo
+    el.dispatchEvent(ev);
+  }
+  // Primero en la fase de captura: descarta clicks nativos de toques que ya hemos atendido nosotros
+  window.addEventListener('click',e=>{
+    clearTimeout(fbTimer); fbTimer=null;
+    if(e.__rf) return;
+    if(!e.isTrusted && !(e.clientX||e.clientY)) return;   // clicks programáticos del propio código de la app
+    const now=Date.now(); handled=handled.filter(h=>now-h.t<4000);
+    const i=handled.findIndex(h=>Math.hypot(e.clientX-h.x,e.clientY-h.y)<45);
+    if(i>-1){ handled.splice(i,1); e.stopImmediatePropagation(); e.preventDefault(); L('GHOST_CLICK','click nativo duplicado descartado en '+(e.target.id||e.target.className||e.target.tagName)); }
+  },true);
+
   document.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1){ start=null; return; }
-    const t=e.touches[0], btn=e.target.closest && e.target.closest('button');
-    start = (btn && !btn.disabled && !btn.closest('.drag-handle') && !btn.classList.contains('fmt-btn') && !btn.closest('#rlog-panel'))
-      ? {btn, x:t.clientX, y:t.clientY, time:Date.now()} : null;
+    if(e.touches.length!==1){ ts=null; return; }
+    const t=e.touches[0], el=e.target;
+    ts=(el && el.closest && !el.closest(SKIP) && Date.now()-lastScroll>150 && clickable(el))
+      ? {el, x:t.clientX, y:t.clientY, time:Date.now(), prevented:false} : null;
   },{passive:true,capture:true});
+  window.addEventListener('touchstart',e=>{ if(ts && e.defaultPrevented) ts.prevented=true; },{passive:true});
   document.addEventListener('touchend',e=>{
-    if(!start) return;
-    const s0=start; start=null; const t=e.changedTouches[0];
-    if(Math.hypot(t.clientX-s0.x, t.clientY-s0.y)>10 || Date.now()-s0.time>600) return;
-    clearTimeout(timer);
-    timer=setTimeout(()=>{
-      timer=null;
-      if(s0.btn.isConnected){
-        try{ window.__rlog && window.__rlog.log('RECOVERED_CLICK','click ejecutado por respaldo en '+(s0.btn.id||s0.btn.className||'button')); }catch(_){}
-        s0.btn.click();
-      }
-    },300);
+    if(!ts) return;
+    const s0=ts; ts=null; const t=e.changedTouches[0];
+    if(s0.prevented || Math.hypot(t.clientX-s0.x,t.clientY-s0.y)>10 || Date.now()-s0.time>600 || Date.now()-lastScroll<150) return;
+    if(touchFirst){ if(s0.el.isConnected) fire(s0.el,s0.x,s0.y); return; }
+    clearTimeout(fbTimer);
+    fbTimer=setTimeout(()=>{
+      fbTimer=null;
+      if(!s0.el.isConnected) return;
+      touchFirst=true;
+      L('RECOVERED_CLICK','no llegó click nativo; ejecutado por respaldo en '+(s0.el.id||s0.el.className||s0.el.tagName)+' -> modo toque-primero ACTIVADO');
+      fire(s0.el,s0.x,s0.y);
+    },120);
   },{passive:true,capture:true});
 })();
 
