@@ -1832,7 +1832,7 @@ function openConfirmDialog({title, message, confirmLabel='Eliminar', cancelLabel
 const state = {
   ingredients: [], // {id, name, isSpice}
   categories: [],  // {id, name} — lista cerrada de categorías
-  recipes: [],     // {id,name,photo,prepMin,cookMin,servings,categoryIds:[],ingredients:[{ingredientId,name,qty,unit}],spices:[{ingredientId,name,amount}],steps:[{type:'step'|'heading',text}],stepsTableText:''}
+  recipes: [],     // {id,name,photo,prepMin,cookMin,servings,categoryIds:[],ingredients:[{ingredientId,name,qty,unit}],spices:[{ingredientId,name,amount,subs:[{ingredientId,name,amount}]}],steps:[{type:'step'|'heading',text}],stepsTableText:''}
   planner: {},     // { mondayKey: [ [entries day0]... x7 ] }
   shopping: {
     recipeEntries: [],   // {id, recipeId, servings} — recetas añadidas (planificador o manualmente), con raciones ajustables
@@ -1875,7 +1875,7 @@ function ingredientUsageCount(ingredientId){
   let count=0;
   state.recipes.forEach(r=>{
     if(r.ingredients.some(i=>i.ingredientId===ingredientId || (i.subs||[]).some(sb=>sb.ingredientId===ingredientId))) count++;
-    else if(r.spices.some(s=>s.ingredientId===ingredientId)) count++;
+    else if(r.spices.some(s=>s.ingredientId===ingredientId || (s.subs||[]).some(sb=>sb.ingredientId===ingredientId))) count++;
   });
   return count;
 }
@@ -2155,7 +2155,7 @@ function recipeMatches(r,q){
   const nq=normalize(q);
   if(normalize(r.name).includes(nq)) return true;
   if(r.ingredients.some(i=>normalize(i.name).includes(nq) || (i.subs||[]).some(sb=>normalize(sb.name).includes(nq)))) return true;
-  if(r.spices.some(s=>normalize(s.name).includes(nq))) return true;
+  if(r.spices.some(s=>normalize(s.name).includes(nq) || (s.subs||[]).some(sb=>normalize(sb.name).includes(nq)))) return true;
   if(recipeCategoryNames(r).some(c=>normalize(c).includes(nq))) return true;
   return false;
 }
@@ -2238,7 +2238,7 @@ $('#detail-edit-btn').addEventListener('click',()=>{
    receta; los sustitutivos sólo se pueden elegir al enviar la receta a la lista de la compra,
    donde la elección se guarda en entry.swaps = { ingredientIdPrincipal: {ingredientId,name,qty,unit} }. */
 function recipeSubGroups(r){
-  return classifyRecipeItems(r).ingredients.filter(i=>Array.isArray(i.subs) && i.subs.length);
+  return classifyRecipeItems(r).ingredients.filter(i=>i._shape==='ingredient' && Array.isArray(i.subs) && i.subs.length);
 }
 /* Cada entrada de la cesta guarda entry.swapList = { ingredientIdPrincipal: [{ingredientId,name,qty,unit,servings}] }:
    cuántas de sus raciones usan cada sustitutivo en lugar del principal. Así una misma receta
@@ -2361,7 +2361,7 @@ function openSubstitutesViewSheet(item, factor){
   openSheet({
     title:'Sustitutivos',
     bodyBuilder:(body)=>{
-      const fmt=o=>formatRecipeItemAmount({...o,_shape:'ingredient'}, factor);
+      const fmt=o=>formatRecipeItemAmount({...o,_shape:item._shape||'ingredient'}, factor);
       let html='';
       html+=`<div class="sub-view-row is-main"><span>${item.name}</span><span class="q">${fmt(item)}</span></div>`;
       item.subs.forEach(sb=>{
@@ -2425,7 +2425,8 @@ function itemToIngredientRow(item){
       subs:(item.subs||[]).map(sb=>({name:sb.name, qty:sb.qty!=null?sb.qty:'', unit:sb.unit!=null?sb.unit:''}))};
   }
   const qty=parseAmountNumber(item.amount);
-  return {name:item.name, qty: qty!==''?qty:'', unit: item.amount?'cucharadas':'', subs:[]};
+  return {name:item.name, qty: qty!==''?qty:'', unit: item.amount?'cucharadas':'',
+    subs:(item.subs||[]).map(sb=>{ const q=parseAmountNumber(sb.amount); return {name:sb.name, qty:q!==''?q:'', unit:sb.amount?'cucharadas':''}; })};
 }
 
 // Convierte un item de receta (ya clasificado como especia) a la fila del
@@ -2433,11 +2434,13 @@ function itemToIngredientRow(item){
 // originalmente como ingrediente (item._shape==='ingredient').
 function itemToSpiceRow(item){
   if(item._shape==='spice'){
-    return {name:item.name, amount:item.amount!=null?item.amount:''};
+    return {name:item.name, amount:item.amount!=null?item.amount:'',
+      subs:(item.subs||[]).map(sb=>({name:sb.name, amount:sb.amount!=null?sb.amount:''}))};
   }
   const qtyPart=(item.qty!=null && item.qty!=='') ? String(item.qty) : '';
   const combined=[qtyPart, item.unit].filter(Boolean).join(' ');
-  return {name:item.name, amount: combined};
+  return {name:item.name, amount: combined,
+    subs:(item.subs||[]).map(sb=>({name:sb.name, amount:[(sb.qty!=null && sb.qty!=='')?String(sb.qty):'', sb.unit].filter(Boolean).join(' ')}))};
 }
 function formatRecipeItemAmount(item, factor=1){
   if(item._shape==='ingredient'){
@@ -2849,7 +2852,16 @@ function updateDetailServings(){
     });
   }
   const spiceRows=$('#spice-rows');
-  if(spiceRows) spiceRows.innerHTML = grouped.spices.map(s=>`<div class="spice-row"><span>${s.name}</span><span class="amt">${formatRecipeItemAmount(s,factor)}</span></div>`).join('');
+  if(spiceRows){
+    const swapSvg2='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H8a4 4 0 0 0-4 4"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h13a4 4 0 0 0 4-4"/></svg>';
+    spiceRows.innerHTML = grouped.spices.map((s,k)=>{
+      const has=Array.isArray(s.subs) && s.subs.length;
+      return `<div class="spice-row"><span class="ing-name-wrap"><span>${s.name}</span>${has?`<button type="button" class="swap-btn" data-k="${k}" aria-label="Ver sustitutivos">${swapSvg2}</button>`:''}</span><span class="amt">${formatRecipeItemAmount(s,factor)}</span></div>`;
+    }).join('');
+    spiceRows.querySelectorAll('.swap-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>openSubstitutesViewSheet(grouped.spices[Number(btn.dataset.k)], factor));
+    });
+  }
   renderStepsView(r);
 }
 
@@ -2858,7 +2870,7 @@ function updateDetailServings(){
 ========================================================= */
 let formState=null;
 // {id|null, name, photo, prepMin, cookMin, servings, categoryIds:[],
-//  ingredients:[{name,qty,unit}], spices:[{name,amount}], steps:[{type:'step'|'heading', text}],
+//  ingredients:[{name,qty,unit}], spices:[{name,amount,subs:[{name,amount}]}], steps:[{type:'step'|'heading', text}],
 //  stepsTableText:'' (texto manual de la vista de tabla), stepsEditView:'seq'|'table' (sólo UI, no se guarda)}
 
 /* ---- Borrador automático del formulario (sobrevive a reinicios de la app) ---- */
@@ -3042,7 +3054,7 @@ function renderForm(){
   renderStepRows();
 
   $('#f-add-ing').addEventListener('click',()=>{ f.ingredients.push({name:'',qty:'',unit:'',subs:[]}); renderIngredientRows(); });
-  $('#f-add-spice').addEventListener('click',()=>{ f.spices.push({name:'',amount:''}); renderSpiceRows(); });
+  $('#f-add-spice').addEventListener('click',()=>{ f.spices.push({name:'',amount:'',subs:[]}); renderSpiceRows(); });
   $('#f-add-step').addEventListener('click',()=>{ f.steps.push({type:'step',text:''}); renderStepRows(); });
 
   $$('#f-steps-seg .shop-seg-btn').forEach(btn=>{
@@ -3188,20 +3200,35 @@ function renderForm(){
     if(toFocus){ try{ toFocus.focus({preventScroll:true}); }catch(e){ toFocus.focus(); } }
   }
 
-  function renderSpiceRows(){
-    const wrap=$('#f-spice-rows'); wrap.innerHTML='';
+  function renderSpiceRows(focusSub){
+    const wrap=$('#f-spice-rows');
+    const scrollEl=$('#form-body');
+    const savedScroll=scrollEl?scrollEl.scrollTop:0;
+    wrap.innerHTML='';
+    const xSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    const swapSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H8a4 4 0 0 0-4 4"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h13a4 4 0 0 0 4-4"/></svg>';
+    const plusSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    const esc=v=>String(v==null?'':v).replace(/"/g,'&quot;');
+    let toFocus=null;
+
     f.spices.forEach((row,idx)=>{
+      if(!Array.isArray(row.subs)) row.subs=[];
+      const group=document.createElement('div');
+      group.className='ing-group'+(row.subs.length?' has-subs':'');
+
+      // ----- especia principal -----
       const card=document.createElement('div');
       card.className='dyn-card';
       card.innerHTML=`
         <div class="dyn-card-top">
           <div class="autocomplete-box">
-            <input type="text" class="ing-name-input" placeholder="" value="${(row.name||'').replace(/"/g,'&quot;')}" autocomplete="off">
+            <input type="text" class="ing-name-input" placeholder="" value="${esc(row.name)}" autocomplete="off">
           </div>
-          <button type="button" class="remove-row-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <button type="button" class="sub-btn" aria-label="Añadir sustitutivo">${swapSvg}</button>
+          <button type="button" class="remove-row-btn">${xSvg}</button>
         </div>
         <div class="dyn-card-bottom">
-          <input type="text" inputmode="decimal" class="amount-input" placeholder="Cantidad, ej. 1/2" value="${(row.amount||'').replace(/"/g,'&quot;')}">
+          <input type="text" inputmode="decimal" class="amount-input" placeholder="Cantidad, ej. 1/2" value="${esc(row.amount)}">
           <span class="amount-suffix">cucharadas</span>
         </div>
       `;
@@ -3212,8 +3239,59 @@ function renderForm(){
       });
       card.querySelector('.amount-input').addEventListener('input',e=>row.amount=e.target.value);
       card.querySelector('.remove-row-btn').addEventListener('click',()=>{ f.spices.splice(idx,1); renderSpiceRows(); });
-      wrap.appendChild(card);
+      card.querySelector('.sub-btn').addEventListener('click',()=>{
+        // El sustitutivo nace con la misma cantidad que la especia principal.
+        row.subs.push({name:'', amount:row.amount});
+        renderSpiceRows({idx, si:row.subs.length-1});
+      });
+      group.appendChild(card);
+
+      // ----- sustitutivos -----
+      row.subs.forEach((sub,si)=>{
+        const sc=document.createElement('div');
+        sc.className='dyn-card sub-card';
+        sc.innerHTML=`
+          <div class="sub-card-label">Sustituto</div>
+          <div class="dyn-card-top">
+            <div class="autocomplete-box">
+              <input type="text" class="ing-name-input" placeholder="" value="${esc(sub.name)}" autocomplete="off">
+            </div>
+            <button type="button" class="remove-row-btn">${xSvg}</button>
+          </div>
+          <div class="dyn-card-bottom">
+            <input type="text" inputmode="decimal" class="amount-input" placeholder="Cantidad, ej. 1/2" value="${esc(sub.amount)}">
+            <span class="amount-suffix">cucharadas</span>
+          </div>
+        `;
+        const sInput=sc.querySelector('.ing-name-input');
+        sInput.addEventListener('input',e=>{
+          sub.name=e.target.value;
+          showIngredientSuggestions(sInput, sc.querySelector('.autocomplete-box'), val=>{ sub.name=val; sInput.value=val; }, i=>i.isSpice, true, 'especia');
+        });
+        sc.querySelector('.amount-input').addEventListener('input',e=>sub.amount=e.target.value);
+        sc.querySelector('.remove-row-btn').addEventListener('click',()=>{ row.subs.splice(si,1); renderSpiceRows(); });
+        group.appendChild(sc);
+        if(focusSub && focusSub.idx===idx && focusSub.si===si) toFocus=sInput;
+      });
+
+      if(row.subs.length){
+        const addBtn=document.createElement('button');
+        addBtn.type='button'; addBtn.className='sub-add-btn'; addBtn.setAttribute('aria-label','Añadir otro sustitutivo');
+        addBtn.innerHTML=plusSvg;
+        addBtn.addEventListener('click',()=>{
+          row.subs.push({name:'', amount:row.amount});
+          renderSpiceRows({idx, si:row.subs.length-1});
+        });
+        group.appendChild(addBtn);
+      }
+      wrap.appendChild(group);
     });
+
+    if(scrollEl){
+      scrollEl.scrollTop=savedScroll;
+      requestAnimationFrame(()=>{ scrollEl.scrollTop=savedScroll; });
+    }
+    if(toFocus){ try{ toFocus.focus({preventScroll:true}); }catch(e){ toFocus.focus(); } }
   }
 
   function renderStepRows(){
@@ -3381,7 +3459,11 @@ $('#form-save-btn').addEventListener('click',()=>{
     .filter(s=>s.name && s.name.trim())
     .map(s=>{
       const master=findOrCreateSpiceIngredient(s.name);
-      return {ingredientId:master.id, name:master.name, amount:(s.amount||'').trim()};
+      const subs=(s.subs||[]).filter(sb=>sb.name && sb.name.trim()).map(sb=>{
+        const m=findOrCreateSpiceIngredient(sb.name);
+        return {ingredientId:m.id, name:m.name, amount:(sb.amount||'').trim()};
+      });
+      return {ingredientId:master.id, name:master.name, amount:(s.amount||'').trim(), subs};
     });
   const cleanSteps = f.steps
     .map(s=>({type:s.type, text:s.text.trim(), timer:(s.type==='step' && s.timer>0)?Math.round(s.timer):0}))
@@ -3873,7 +3955,7 @@ function openIngredientEditSheet(ing){
         ing.isSpice=isSpice;
         state.recipes.forEach(r=>{
           r.ingredients.forEach(i=>{ if(i.ingredientId===ing.id) i.name=val; (i.subs||[]).forEach(sb=>{ if(sb.ingredientId===ing.id) sb.name=val; }); });
-          r.spices.forEach(s=>{ if(s.ingredientId===ing.id) s.name=val; });
+          r.spices.forEach(s=>{ if(s.ingredientId===ing.id) s.name=val; (s.subs||[]).forEach(sb=>{ if(sb.ingredientId===ing.id) sb.name=val; }); });
         });
         renderIngredientsView($('#ing-search').value);
         renderRecipeList();
